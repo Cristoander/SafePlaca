@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { BoardProject, BoardComponentMarker, VisualStyle, ComponentKind } from '../types/board';
 import { WatermarkOverlay } from './WatermarkOverlay';
+import { compressImageFile } from '../utils/compressImage';
 import { 
   Sparkles, 
   Plus, 
   Upload, 
   Trash2, 
-  Crosshair
+  Crosshair,
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react';
 
 interface ComponentMarkerEditorProps {
@@ -21,40 +24,43 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
   onUpdatePhoto,
 }) => {
   const [style, setStyle] = useState<VisualStyle>('normal');
+  const [currentPhoto, setCurrentPhoto] = useState<string | undefined>(board.realPhotoUrl);
   const [markers, setMarkers] = useState<BoardComponentMarker[]>(board.markers || []);
   const [selectedMarker, setSelectedMarker] = useState<BoardComponentMarker | null>(
     board.markers && board.markers[0] ? board.markers[0] : null
   );
   const [pendingKind, setPendingKind] = useState<ComponentKind | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sincroniza se a placa mudar
   useEffect(() => {
+    setCurrentPhoto(board.realPhotoUrl);
     setMarkers(board.markers || []);
     if (board.markers && board.markers.length > 0) {
       setSelectedMarker(board.markers[0]);
     }
-  }, [board.id]);
+  }, [board.id, board.realPhotoUrl]);
 
-  // Suporte a colar imagem (Ctrl+V)
+  // Suporte a colar imagem com Ctrl+V
   useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
+    const handlePaste = async (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
       if (!items) return;
       for (let i = 0; i < items.length; i++) {
         if (items[i].type.indexOf('image') !== -1) {
           const blob = items[i].getAsFile();
           if (blob) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-              const res = ev.target?.result as string;
-              if (res && onUpdatePhoto) {
-                onUpdatePhoto(res);
-              }
-            };
-            reader.readAsDataURL(blob);
+            const compressed = await compressImageFile(blob);
+            if (compressed) {
+              setCurrentPhoto(compressed);
+              if (onUpdatePhoto) onUpdatePhoto(compressed);
+              setUploadSuccess(true);
+              setTimeout(() => setUploadSuccess(false), 3000);
+            }
           }
         }
       }
@@ -63,6 +69,35 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
   }, [onUpdatePhoto]);
+
+  // Upload do arquivo PNG / JPG
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const compressed = await compressImageFile(file);
+    if (compressed) {
+      setCurrentPhoto(compressed);
+      if (onUpdatePhoto) onUpdatePhoto(compressed);
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 3000);
+    }
+  };
+
+  // Drag & drop de foto sobre o container
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const compressed = await compressImageFile(file);
+      if (compressed) {
+        setCurrentPhoto(compressed);
+        if (onUpdatePhoto) onUpdatePhoto(compressed);
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 3000);
+      }
+    }
+  };
 
   // Clique na placa para posicionar componente
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -127,17 +162,9 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
     if (onUpdateMarkers) onUpdateMarkers(updated);
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const result = ev.target?.result as string;
-      if (result && onUpdatePhoto) {
-        onUpdatePhoto(result);
-      }
-    };
-    reader.readAsDataURL(file);
+  const handleRemovePhoto = () => {
+    setCurrentPhoto(undefined);
+    if (onUpdatePhoto) onUpdatePhoto('');
   };
 
   const getKindColor = (kind: ComponentKind) => {
@@ -261,24 +288,49 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
             <span>CI/OVP</span>
           </button>
 
-          {/* Subir Foto */}
+          {/* Subir Foto / Trocar Foto */}
           <input
             type="file"
             ref={fileInputRef}
             onChange={handlePhotoUpload}
-            accept="image/*"
+            onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
+            accept="image/png, image/jpeg, image/webp, image/*"
             className="hidden"
           />
+
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 text-xs border border-cyan-800/40 flex items-center gap-1.5 transition ml-2"
-            title="Ou cole uma imagem direto da área de transferência com Ctrl+V"
+            className={`px-3 py-1 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition ml-2 ${
+              currentPhoto
+                ? 'bg-slate-900 hover:bg-slate-800 text-amber-300 border-amber-500/40'
+                : 'bg-cyan-600 hover:bg-cyan-500 text-white border-cyan-400 shadow-md shadow-cyan-950'
+            }`}
+            title="Escolha uma foto PNG ou JPG do seu computador ou cole com Ctrl+V"
           >
-            <Upload className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Foto da Placa</span>
+            <Upload className="w-3.5 h-3.5" />
+            <span>{currentPhoto ? 'Trocar Foto PNG' : 'Subir Foto PNG / JPG'}</span>
           </button>
+
+          {currentPhoto && (
+            <button
+              onClick={handleRemovePhoto}
+              className="px-2 py-1 rounded-xl bg-red-950/70 hover:bg-red-900 text-red-300 text-xs border border-red-800/50 flex items-center gap-1 transition"
+              title="Remover foto e voltar ao desenho vetorial"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Voltar a Vetor</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Notificação de Sucesso */}
+      {uploadSuccess && (
+        <div className="bg-emerald-950/90 border border-emerald-500/60 rounded-xl p-2.5 text-xs text-emerald-300 flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+          <span className="font-bold">Foto da placa carregada e comprimida com sucesso na bancada!</span>
+        </div>
+      )}
 
       {/* Alerta de Modo de Posicionamento Ativo */}
       {pendingKind && (
@@ -301,7 +353,14 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
       {/* Grid Principal: Imagem da Placa + Painel de Edição */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Visualizador da Placa com Marcadores */}
-        <div className="lg:col-span-2 relative bg-slate-950 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl p-3 flex flex-col justify-center items-center min-h-[400px]">
+        <div 
+          onDragOver={(e) => { e.preventDefault(); setIsDraggingFile(true); }}
+          onDragLeave={() => setIsDraggingFile(false)}
+          onDrop={handleDrop}
+          className={`lg:col-span-2 relative bg-slate-950 border ${
+            isDraggingFile ? 'border-2 border-cyan-400 bg-cyan-950/20' : 'border-slate-800'
+          } rounded-3xl overflow-hidden shadow-2xl p-3 flex flex-col justify-center items-center min-h-[400px] transition`}
+        >
           {/* MARCA D'ÁGUA OBRIGATÓRIA DA SAFEPLACA */}
           <WatermarkOverlay boardCode={board.modelCode} intensity="normal" />
 
@@ -313,12 +372,12 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
             } transition duration-300 ${getStyleFilterClass()}`}
           >
             {/* Foto Real ou Vetor */}
-            {board.realPhotoUrl ? (
+            {currentPhoto ? (
               <img
-                src={board.realPhotoUrl}
+                src={currentPhoto}
                 alt={board.title}
                 draggable={false}
-                className="w-full h-auto object-contain rounded-xl select-none protected-media"
+                className="w-full h-auto max-h-[550px] object-contain rounded-xl select-none mx-auto block shadow-2xl"
               />
             ) : (
               <div
@@ -361,9 +420,12 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
             })}
           </div>
 
-          <p className="text-[10px] text-slate-500 mt-2 font-mono">
-            Dica: Você pode arrastar uma foto ou colar com <span className="text-cyan-300 font-bold">Ctrl+V</span> diretamente aqui.
-          </p>
+          <div className="text-[10px] text-slate-500 mt-2 font-mono flex items-center gap-3">
+            <span>💡 Dica: Arraste e solte uma imagem PNG aqui ou aperte <strong className="text-cyan-300">Ctrl+V</strong>.</span>
+            {currentPhoto && (
+              <span className="text-emerald-400 font-bold">● Foto Ativa</span>
+            )}
+          </div>
         </div>
 
         {/* Painel Lateral: Edição do Componente Selecionado */}
