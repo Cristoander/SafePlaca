@@ -23,12 +23,14 @@ interface BoardDetailModalProps {
   board: BoardProject;
   onClose: () => void;
   onOpenProjector: (board: BoardProject) => void;
+  onUpdateBoard?: (board: BoardProject) => void;
 }
 
 export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
   board,
   onClose,
   onOpenProjector,
+  onUpdateBoard,
 }) => {
   const [activeTab, setActiveTab] = useState<'components' | 'faults' | 'schematic' | 'pinout' | 'bom' | 'notes'>('components');
 
@@ -189,14 +191,25 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           {/* TAB: Mapeamento de Componentes (Foto / Blueprint / Raio-X) */}
           {activeTab === 'components' && (
-            <ComponentMarkerEditor board={board} />
+            <ComponentMarkerEditor
+              board={board}
+              onUpdateMarkers={(markers) => onUpdateBoard && onUpdateBoard({ ...board, markers })}
+              onUpdatePhoto={(photoUrl) => onUpdateBoard && onUpdateBoard({ ...board, realPhotoUrl: photoUrl })}
+            />
           )}
 
           {/* TAB: Defeitos Comuns & Soluções */}
           {activeTab === 'faults' && (
             <FaultsTroubleshootingView
               faults={board.commonFaults || []}
-              
+              onAddFault={(fault) => {
+                const updatedFaults = [...(board.commonFaults || []), fault];
+                if (onUpdateBoard) onUpdateBoard({ ...board, commonFaults: updatedFaults });
+              }}
+              onDeleteFault={(faultId) => {
+                const updatedFaults = (board.commonFaults || []).filter((f) => f.id !== faultId);
+                if (onUpdateBoard) onUpdateBoard({ ...board, commonFaults: updatedFaults });
+              }}
             />
           )}
 

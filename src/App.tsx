@@ -36,6 +36,21 @@ export function App() {
     return cleanupProtection;
   }, []);
 
+  // Atualiza placa existente no LocalStorage
+  const handleUpdateBoard = (updatedBoard: BoardProject) => {
+    const updated = boards.map((b) => (b.id === updatedBoard.id ? updatedBoard : b));
+    setBoards(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (err) {
+      console.warn('Erro ao salvar no storage:', err);
+    }
+    setSelectedBoard(updatedBoard);
+    if (projectorBoard?.id === updatedBoard.id) {
+      setProjectorBoard(updatedBoard);
+    }
+  };
+
   // Salva no LocalStorage
   const handleSaveBoard = (newBoard: BoardProject) => {
     const updated = [newBoard, ...boards];
@@ -97,6 +112,7 @@ export function App() {
         <BoardDetailModal
           board={selectedBoard}
           onClose={() => setSelectedBoard(null)}
+          onUpdateBoard={handleUpdateBoard}
           onOpenProjector={(board) => {
             setSelectedBoard(null);
             handleOpenProjector(board);
