@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { BoardProject, BoardComponentMarker, VisualStyle, ComponentKind } from '../types/board';
 import { WatermarkOverlay } from './WatermarkOverlay';
 import { AutoBoardImageStudio } from './AutoBoardImageStudio';
+import { SchematicBuilderModal } from './SchematicBuilderModal';
 import { compressImageFile } from '../utils/compressImage';
+import { PREBUILT_COMPONENTS_LIBRARY, type PrebuiltComponentTemplate } from '../data/prebuiltComponents';
 import { 
   Sparkles, 
   Plus, 
@@ -11,19 +13,26 @@ import {
   Crosshair,
   CheckCircle2,
   RefreshCw,
-  Wand2
+  Wand2,
+  Package,
+  Activity,
+  ChevronRight,
+  Check,
+  X
 } from 'lucide-react';
 
 interface ComponentMarkerEditorProps {
   board: BoardProject;
   onUpdateMarkers?: (markers: BoardComponentMarker[]) => void;
   onUpdatePhoto?: (photoUrl: string) => void;
+  onUpdateSchematic?: (newSvg: string) => void;
 }
 
 export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
   board,
   onUpdateMarkers,
   onUpdatePhoto,
+  onUpdateSchematic,
 }) => {
   const [style, setStyle] = useState<VisualStyle>('normal');
   const [currentPhoto, setCurrentPhoto] = useState<string | undefined>(board.realPhotoUrl);
@@ -35,6 +44,8 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
+  const [isPrebuiltOpen, setIsPrebuiltOpen] = useState(false);
+  const [isSchematicBuilderOpen, setIsSchematicBuilderOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -102,44 +113,46 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
     }
   };
 
-  // Clique na placa para posicionar componente
-  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!pendingKind || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
-
+  // Adicionar marcador em posição específica com validação
+  const addMarkerAt = (
+    kind: ComponentKind, 
+    xPercent: number, 
+    yPercent: number, 
+    templateData?: Partial<BoardComponentMarker>
+  ) => {
     const kindPrefix = 
-      pendingKind === 'bobina' ? 'L' :
-      pendingKind === 'conector' ? 'J' :
-      pendingKind === 'diodo' ? 'D' :
-      pendingKind === 'ci' ? 'U' :
-      pendingKind === 'termistor' ? 'TH' : 'C';
+      kind === 'bobina' ? 'L' :
+      kind === 'conector' ? 'J' :
+      kind === 'diodo' ? 'D' :
+      kind === 'ci' ? 'U' :
+      kind === 'termistor' ? 'TH' : 'C';
 
-    const existingCount = markers.filter(m => m.kind === pendingKind).length + 1;
-    const refName = `${kindPrefix}${existingCount}`;
+    const existingCount = markers.filter(m => m.kind === kind).length + 1;
+    const refName = templateData?.reference || `${kindPrefix}${existingCount}`;
 
     const defaultNames: Record<ComponentKind, string> = {
-      bobina: 'Bobina de Alimentação',
+      bobina: 'Bobina de Alimentação BUCK',
       conector: 'Conector / Conexão FPC',
       diodo: 'Diodo TVS / Retificador',
       ci: 'Circuito Integrado (CI / PMIC)',
-      termistor: 'Termistor NTC de Temperatura',
-      capacitor: 'Capacitor de Filtragem',
+      termistor: 'Termistor NTC Sensor Térmico',
+      capacitor: 'Capacitor de Filtragem SMD',
       resistor: 'Resistor de Amostragem',
     };
 
     const newMarker: BoardComponentMarker = {
       id: 'marker-' + Date.now(),
-      kind: pendingKind,
+      kind,
       reference: refName,
-      name: defaultNames[pendingKind] || 'Componente',
-      xPercent: Math.max(2, Math.min(98, x)),
-      yPercent: Math.max(2, Math.min(98, y)),
-      functionDesc: 'Posicionado na bancada.',
-      diodeScaleMv: pendingKind === 'bobina' ? 0 : 520,
-      voltage: '5.0V',
-      repairTip: 'Verificar solda e continuidade.',
+      name: templateData?.name || defaultNames[kind] || 'Componente',
+      xPercent: Math.max(2, Math.min(98, xPercent)),
+      yPercent: Math.max(2, Math.min(98, yPercent)),
+      functionDesc: templateData?.functionDesc || 'Posicionado na bancada.',
+      diodeScaleMv: templateData?.diodeScaleMv !== undefined ? templateData.diodeScaleMv : (kind === 'bobina' ? 0 : 520),
+      voltage: templateData?.voltage || '5.0V',
+      netName: templateData?.netName,
+      faultSymptom: templateData?.faultSymptom || 'Verificar se há curto para o terra (GND).',
+      repairTip: templateData?.repairTip || 'Testar continuidade e escala de diodo.',
     };
 
     const updated = [...markers, newMarker];
@@ -149,9 +162,44 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
     if (onUpdateMarkers) onUpdateMarkers(updated);
   };
 
+  // Clique na placa para posicionar componente
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!pendingKind) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+    addMarkerAt(pendingKind, x, y);
+  };
+
+  // Inserir peça pré-montada da biblioteca
+  const handleInsertPrebuilt = (tpl: PrebuiltComponentTemplate) => {
+    addMarkerAt(tpl.kind, 50, 50, {
+      reference: `${tpl.referencePrefix}${markers.filter(m => m.kind === tpl.kind).length + 1}`,
+      name: tpl.name,
+      functionDesc: tpl.functionDesc,
+      diodeScaleMv: tpl.diodeScaleMv,
+      voltage: tpl.voltage,
+      netName: tpl.netName,
+      faultSymptom: tpl.faultSymptom,
+      repairTip: tpl.repairTip
+    });
+    setIsPrebuiltOpen(false);
+  };
+
   const handleUpdateSelectedMarker = (field: keyof BoardComponentMarker, value: any) => {
     if (!selectedMarker) return;
     const updatedMarker = { ...selectedMarker, [field]: value };
+    const updated = markers.map((m) => (m.id === selectedMarker.id ? updatedMarker : m));
+    setMarkers(updated);
+    setSelectedMarker(updatedMarker);
+    if (onUpdateMarkers) onUpdateMarkers(updated);
+  };
+
+  const handleNudgeSelected = (dx: number, dy: number) => {
+    if (!selectedMarker) return;
+    const newX = Math.max(2, Math.min(98, selectedMarker.xPercent + dx));
+    const newY = Math.max(2, Math.min(98, selectedMarker.yPercent + dy));
+    const updatedMarker = { ...selectedMarker, xPercent: newX, yPercent: newY };
     const updated = markers.map((m) => (m.id === selectedMarker.id ? updatedMarker : m));
     setMarkers(updated);
     setSelectedMarker(updatedMarker);
@@ -231,6 +279,19 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
         {/* Botões Rápidos de Adicionar Componentes */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[11px] text-slate-400 mr-1">ADICIONAR:</span>
+          
+          <button
+            onClick={() => setPendingKind(pendingKind === 'termistor' ? null : 'termistor')}
+            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition border flex items-center gap-1 ${
+              pendingKind === 'termistor'
+                ? 'bg-red-600 text-white border-white animate-pulse'
+                : 'bg-red-950/80 text-red-300 border-red-800/60 hover:bg-red-900'
+            }`}
+          >
+            <Plus className="w-3 h-3" />
+            <span>Termistor</span>
+          </button>
+
           <button
             onClick={() => setPendingKind(pendingKind === 'bobina' ? null : 'bobina')}
             className={`px-2.5 py-1 rounded-xl text-xs font-bold transition border flex items-center gap-1 ${
@@ -268,18 +329,6 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
           </button>
 
           <button
-            onClick={() => setPendingKind(pendingKind === 'termistor' ? null : 'termistor')}
-            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition border flex items-center gap-1 ${
-              pendingKind === 'termistor'
-                ? 'bg-red-600 text-white border-white animate-pulse'
-                : 'bg-red-950/80 text-red-300 border-red-800/60 hover:bg-red-900'
-            }`}
-          >
-            <Plus className="w-3 h-3" />
-            <span>Termistor</span>
-          </button>
-
-          <button
             onClick={() => setPendingKind(pendingKind === 'ci' ? null : 'ci')}
             className={`px-2.5 py-1 rounded-xl text-xs font-bold transition border flex items-center gap-1 ${
               pendingKind === 'ci'
@@ -289,6 +338,26 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
           >
             <Plus className="w-3 h-3" />
             <span>CI/OVP</span>
+          </button>
+
+          {/* Botão de Peças Pré-Montadas */}
+          <button
+            onClick={() => setIsPrebuiltOpen(true)}
+            className="px-3 py-1 rounded-xl bg-purple-950 hover:bg-purple-900 text-purple-300 text-xs font-bold border border-purple-700/60 flex items-center gap-1.5 transition ml-1"
+            title="Abrir catálogo com mais de 10 peças pré-configuradas com valores reais"
+          >
+            <Package className="w-3.5 h-3.5 text-purple-400" />
+            <span>Peças Prontas</span>
+          </button>
+
+          {/* Botão Desenhar Esquema Elétrico */}
+          <button
+            onClick={() => setIsSchematicBuilderOpen(true)}
+            className="px-3 py-1 rounded-xl bg-indigo-950 hover:bg-indigo-900 text-indigo-300 text-xs font-bold border border-indigo-700/60 flex items-center gap-1.5 transition"
+            title="Desenhar esquema elétrico vetorial interativo"
+          >
+            <Activity className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Desenhar Esquema</span>
           </button>
 
           {/* Subir Foto / Trocar Foto */}
@@ -311,7 +380,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
             title="Escolha uma foto PNG ou JPG do seu computador ou cole com Ctrl+V"
           >
             <Upload className="w-3.5 h-3.5" />
-            <span>{currentPhoto ? 'Trocar Foto PNG' : 'Subir Foto PNG / JPG'}</span>
+            <span>{currentPhoto ? 'Trocar Foto' : 'Subir Foto PNG / JPG'}</span>
           </button>
 
           {currentPhoto && (
@@ -322,16 +391,16 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                 title="Remover foto e voltar ao desenho vetorial"
               >
                 <RefreshCw className="w-3 h-3" />
-                <span>Voltar a Vetor</span>
+                <span>Vetor</span>
               </button>
 
               <button
                 onClick={() => setIsStudioOpen(true)}
                 className="px-3 py-1 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs border border-cyan-400/50 shadow-md shadow-cyan-950 flex items-center gap-1.5 transition ml-1"
-                title="Abrir estúdio automático para cortar bordas, aplicar Raio-X ou Blueprint com 1 clique"
+                title="Abrir estúdio de imagem"
               >
                 <Wand2 className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                <span>Estúdio Auto: Cortar / Raio-X</span>
+                <span>Estúdio IA</span>
               </button>
             </>
           )}
@@ -342,25 +411,33 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
       {uploadSuccess && (
         <div className="bg-emerald-950/90 border border-emerald-500/60 rounded-xl p-2.5 text-xs text-emerald-300 flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span className="font-bold">Foto da placa carregada e comprimida com sucesso na bancada!</span>
+          <span className="font-bold">Foto da placa carregada com sucesso na bancada!</span>
         </div>
       )}
 
-      {/* Alerta de Modo de Posicionamento Ativo */}
+      {/* Alerta de Modo de Posicionamento Ativo com botão de Inserir no Centro */}
       {pendingKind && (
-        <div className="bg-amber-950/80 border border-amber-500/50 rounded-xl p-3 text-xs text-amber-300 flex items-center justify-between animate-in fade-in">
+        <div className="bg-amber-950/90 border border-amber-500/60 rounded-2xl p-3 text-xs text-amber-300 flex flex-wrap items-center justify-between gap-3 shadow-xl animate-pulse">
           <div className="flex items-center gap-2">
             <Crosshair className="w-4 h-4 text-amber-400 animate-spin" />
-            <span className="font-bold">
-              Modo Posicionamento: Clique em qualquer lugar na placa para fixar a {pendingKind.toUpperCase()}!
+            <span className="font-bold text-white">
+              Modo Posicionamento Ativo: Clique em qualquer lugar na placa para fixar a {pendingKind.toUpperCase()}!
             </span>
           </div>
-          <button
-            onClick={() => setPendingKind(null)}
-            className="text-slate-400 hover:text-white px-2 py-0.5 rounded bg-slate-900"
-          >
-            Cancelar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => addMarkerAt(pendingKind, 50, 50)}
+              className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-black font-extrabold rounded-xl text-xs transition shadow-md flex items-center gap-1"
+            >
+              <Check className="w-3.5 h-3.5" /> Inserir no Centro (50%, 50%)
+            </button>
+            <button
+              onClick={() => setPendingKind(null)}
+              className="text-slate-400 hover:text-white px-2.5 py-1 rounded-xl bg-slate-900 border border-slate-700"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
@@ -373,17 +450,18 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
           onDrop={handleDrop}
           className={`lg:col-span-2 relative bg-slate-950 border ${
             isDraggingFile ? 'border-2 border-cyan-400 bg-cyan-950/20' : 'border-slate-800'
-          } rounded-3xl overflow-hidden shadow-2xl p-3 flex flex-col justify-center items-center min-h-[400px] transition`}
+          } rounded-3xl overflow-hidden shadow-2xl p-3 flex flex-col justify-center items-center min-h-[400px] transition select-none`}
         >
           {/* MARCA D'ÁGUA OBRIGATÓRIA DA SAFEPLACA */}
           <WatermarkOverlay boardCode={board.modelCode} intensity="normal" />
 
+          {/* Container Interativo de Clique Direto */}
           <div
             ref={containerRef}
             onClick={handleContainerClick}
-            className={`relative w-full max-w-[880px] overflow-hidden rounded-2xl cursor-${
-              pendingKind ? 'crosshair ring-2 ring-amber-500' : 'default'
-            } transition duration-300 ${getStyleFilterClass()}`}
+            className={`relative w-full max-w-[880px] overflow-hidden rounded-2xl z-10 transition duration-300 ${getStyleFilterClass()} ${
+              pendingKind ? 'cursor-crosshair ring-2 ring-amber-500' : 'cursor-default'
+            }`}
           >
             {/* Foto Real ou Vetor */}
             {currentPhoto ? (
@@ -391,11 +469,11 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                 src={currentPhoto}
                 alt={board.title}
                 draggable={false}
-                className="w-full h-auto max-h-[550px] object-contain rounded-xl select-none mx-auto block shadow-2xl"
+                className="w-full h-auto max-h-[550px] object-contain rounded-xl select-none mx-auto block shadow-2xl pointer-events-auto"
               />
             ) : (
               <div
-                className="w-full h-auto select-none pointer-events-none"
+                className="w-full h-auto select-none pointer-events-auto"
                 dangerouslySetInnerHTML={{ __html: board.schematicSvg }}
               />
             )}
@@ -426,7 +504,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                   >
                     {marker.reference.slice(0, 2)}
                   </div>
-                  <span className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/90 border border-slate-700 px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-lg">
+                  <span className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/90 border border-slate-700 px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-lg pointer-events-none">
                     {marker.reference}
                   </span>
                 </div>
@@ -435,7 +513,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
           </div>
 
           <div className="text-[10px] text-slate-500 mt-2 font-mono flex items-center gap-3">
-            <span>💡 Dica: Arraste e solte uma imagem PNG aqui ou aperte <strong className="text-cyan-300">Ctrl+V</strong>.</span>
+            <span>💡 Dica: Clique no botão de peça acima e depois clique na foto da placa.</span>
             {currentPhoto && (
               <span className="text-emerald-400 font-bold">● Foto Ativa</span>
             )}
@@ -467,7 +545,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                     type="text"
                     value={selectedMarker.reference}
                     onChange={(e) => handleUpdateSelectedMarker('reference', e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-cyan-300 font-bold"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-cyan-300 font-bold font-mono"
                   />
                 </div>
 
@@ -481,6 +559,69 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                   />
                 </div>
 
+                {/* Ajuste Fino de Posição X / Y com D-Pad */}
+                <div>
+                  <label className="text-slate-400 block mb-1 flex items-center justify-between">
+                    <span>Posição na Placa:</span>
+                    <span className="font-mono text-cyan-300">X: {selectedMarker.xPercent}% | Y: {selectedMarker.yPercent}%</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-3 gap-1 max-w-[110px] text-center font-bold">
+                      <div />
+                      <button
+                        onClick={() => handleNudgeSelected(0, -2)}
+                        className="p-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-slate-200"
+                        title="Mover para cima"
+                      >
+                        ▲
+                      </button>
+                      <div />
+                      <button
+                        onClick={() => handleNudgeSelected(-2, 0)}
+                        className="p-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-slate-200"
+                        title="Mover para esquerda"
+                      >
+                        ◀
+                      </button>
+                      <button
+                        onClick={() => handleNudgeSelected(0, 2)}
+                        className="p-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-slate-200"
+                        title="Mover para baixo"
+                      >
+                        ▼
+                      </button>
+                      <button
+                        onClick={() => handleNudgeSelected(2, 0)}
+                        className="p-1 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded text-slate-200"
+                        title="Mover para direita"
+                      >
+                        ▶
+                      </button>
+                    </div>
+
+                    <div className="flex-1 space-y-1">
+                      <input
+                        type="range"
+                        min="2"
+                        max="98"
+                        value={selectedMarker.xPercent}
+                        onChange={(e) => handleUpdateSelectedMarker('xPercent', Number(e.target.value))}
+                        className="w-full"
+                        title="Posição Horizontal X"
+                      />
+                      <input
+                        type="range"
+                        min="2"
+                        max="98"
+                        value={selectedMarker.yPercent}
+                        onChange={(e) => handleUpdateSelectedMarker('yPercent', Number(e.target.value))}
+                        className="w-full"
+                        title="Posição Vertical Y"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-slate-400 block mb-1">Escala Diodo (mV):</label>
@@ -489,7 +630,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                       value={selectedMarker.diodeScaleMv || ''}
                       onChange={(e) => handleUpdateSelectedMarker('diodeScaleMv', Number(e.target.value))}
                       placeholder="Ex: 520"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-amber-400 font-bold"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-amber-400 font-bold font-mono"
                     />
                   </div>
 
@@ -500,7 +641,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                       value={selectedMarker.voltage || ''}
                       onChange={(e) => handleUpdateSelectedMarker('voltage', e.target.value)}
                       placeholder="Ex: 5.0V / 9.0V"
-                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-cyan-300"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-cyan-300 font-mono"
                     />
                   </div>
                 </div>
@@ -531,7 +672,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
             <div className="text-center py-12 text-slate-500 text-xs">
               <p>Nenhum componente selecionado.</p>
               <p className="mt-2 text-cyan-400">
-                Clique nos botões acima (+ Bobina, + Conector...) e clique na placa para adicionar!
+                Clique nos botões acima (+ Termistor, + Bobina...) e clique na placa para posicionar!
               </p>
             </div>
           )}
@@ -560,7 +701,59 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
         </div>
       </div>
 
-      {/* Estúdio Automático de Imagem (Cortar, Raio-X, Blueprint) */}
+      {/* Modal de Peças Pré-Montadas */}
+      {isPrebuiltOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+            <div className="p-4 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-purple-400" />
+                <h3 className="font-bold text-white text-base">Biblioteca de Peças Pré-Montadas de Bancada</h3>
+              </div>
+              <button onClick={() => setIsPrebuiltOpen(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-3">
+              <p className="text-xs text-slate-400">
+                Escolha uma peça pré-configurada abaixo. Todos os valores de diodo, voltagem e sintomas já virão prontos:
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {PREBUILT_COMPONENTS_LIBRARY.map(tpl => (
+                  <div
+                    key={tpl.id}
+                    onClick={() => handleInsertPrebuilt(tpl)}
+                    className="p-3 bg-slate-950/80 hover:bg-purple-950/30 border border-slate-800 hover:border-purple-500/50 rounded-2xl cursor-pointer transition flex flex-col justify-between group"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white text-sm group-hover:text-purple-300 transition">
+                          {tpl.name}
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800/40">
+                          {tpl.badge}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">{tpl.functionDesc}</p>
+                      <div className="flex items-center gap-3 mt-2 text-[11px] font-mono">
+                        <span className="text-emerald-400 font-bold">{tpl.diodeScaleMv} mV</span>
+                        <span className="text-slate-400">{tpl.voltage}</span>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-slate-800/60 flex items-center justify-between text-xs text-purple-400 font-semibold">
+                      <span>Inserir na Placa</span>
+                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Estúdio Automático de Imagem */}
       {isStudioOpen && currentPhoto && (
         <AutoBoardImageStudio
           initialPhotoUrl={currentPhoto}
@@ -569,6 +762,18 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
           onApplyPhoto={(newUrl) => {
             setCurrentPhoto(newUrl);
             if (onUpdatePhoto) onUpdatePhoto(newUrl);
+          }}
+        />
+      )}
+
+      {/* Editor e Desenhador de Esquema Elétrico */}
+      {isSchematicBuilderOpen && (
+        <SchematicBuilderModal
+          board={board}
+          isOpen={isSchematicBuilderOpen}
+          onClose={() => setIsSchematicBuilderOpen(false)}
+          onSaveSchematic={(newSvg) => {
+            if (onUpdateSchematic) onUpdateSchematic(newSvg);
           }}
         />
       )}

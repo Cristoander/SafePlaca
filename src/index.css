@@ -23,7 +23,6 @@
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
-  pointer-events: auto;
 }
 
 .protected-media {

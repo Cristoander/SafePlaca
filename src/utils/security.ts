@@ -1,4 +1,4 @@
-﻿// SafePlaca - Sistema de Segurança e Proteção de Propriedade Intelectual
+// SafePlaca - Sistema de Segurança e Proteção de Propriedade Intelectual
 
 export interface SecurityEventDetail {
   action: string;
@@ -66,12 +66,11 @@ export function initWorkbenchProtection(): () => void {
     }
   };
 
-  // 3. Bloqueio de arrastar imagens (drag & drop para desktop/outra aba)
+  // 3. Bloqueio de arrastar imagens (apenas previne download sem interromper cliques)
   const handleDragStart = (e: DragEvent) => {
     const target = e.target as HTMLElement | null;
     if (target && (target.tagName === 'IMG' || target.tagName === 'svg' || target.classList.contains('protected-media'))) {
       e.preventDefault();
-      notifySecurityViolation('drag_media', 'Arrastar imagens para download está desabilitado.');
     }
   };
 

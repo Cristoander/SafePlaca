@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldAlert, Lock } from 'lucide-react';
 
 
@@ -35,10 +35,14 @@ export const WatermarkOverlay: React.FC<WatermarkOverlayProps> = ({
   const watermarkText = `SAFEPLACA • NÃO BAIXAR • ${boardCode} • ${timestamp} • USO DE BANCADA`;
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden select-none select-none no-copy-shield">
+    <div 
+      className="absolute inset-0 pointer-events-none z-30 overflow-hidden select-none"
+      style={{ pointerEvents: 'none' }}
+    >
       {/* Padrão diagonal de marcas d água repetidas */}
       <div
-        className={`absolute inset-[-100%] w-[300%] h-[300%] flex flex-col justify-around rotate-[-30deg] ${opacityClass} font-mono font-bold tracking-widest text-xs md:text-sm text-red-400`}
+        style={{ pointerEvents: 'none' }}
+        className={`absolute inset-[-100%] w-[300%] h-[300%] flex flex-col justify-around rotate-[-30deg] ${opacityClass} font-mono font-bold tracking-widest text-xs md:text-sm text-red-400 pointer-events-none`}
       >
         {Array.from({ length: 24 }).map((_, rowIndex) => (
           <div
@@ -65,7 +69,10 @@ export const WatermarkOverlay: React.FC<WatermarkOverlayProps> = ({
 
       {/* Badge flutuante indicativa de proteção ativa */}
       {showBadge && (
-        <div className="absolute bottom-3 right-3 bg-red-950/80 border border-red-500/40 text-red-300 text-[10px] font-mono px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md flex items-center gap-1.5 z-40">
+        <div 
+          style={{ pointerEvents: 'none' }}
+          className="absolute bottom-3 right-3 bg-red-950/80 border border-red-500/40 text-red-300 text-[10px] font-mono px-2.5 py-1 rounded-full shadow-lg backdrop-blur-md flex items-center gap-1.5 z-40 pointer-events-none"
+        >
           <span className="w-2 h-2 rounded-full bg-red-500 animate-ping inline-block" />
           <span>MARCA D'ÁGUA ATIVA • CÓPIA BLOQUEADA</span>
         </div>
