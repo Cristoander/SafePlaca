@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   rotateImage90, 
   flipImageHorizontal, 
@@ -7,7 +7,10 @@ import {
   applyAutoBlueprint, 
   applyAutoEdgeEnhancement,
   applyMicroscopeOptimization,
-  applyCustomAdjustments
+  applyCustomAdjustments,
+  autoRemoveMatBackground,
+  cropByPolygon,
+  type TargetBgType
 } from '../utils/imageProcessors';
 import { 
   Wand2, 
@@ -22,7 +25,8 @@ import {
   Layers,
   Sliders,
   Sun,
-  Contrast
+  Contrast,
+  Scissors
 } from 'lucide-react';
 
 interface AutoBoardImageStudioProps {
@@ -47,6 +51,15 @@ export const AutoBoardImageStudio: React.FC<AutoBoardImageStudioProps> = ({
   const [brightnessVal, setBrightnessVal] = useState(1.0);
   const [contrastVal, setContrastVal] = useState(1.0);
   const [sharpnessActive, setSharpnessActive] = useState(false);
+
+  // Modo Recorte de Fundo
+  const [showBgRemover, setShowBgRemover] = useState(false);
+  const [targetBg, setTargetBg] = useState<TargetBgType>('transparent');
+  const [matTolerance, setMatTolerance] = useState(45);
+  const [isPolygonMode, setIsPolygonMode] = useState(false);
+  const [polygonPoints, setPolygonPoints] = useState<{ xPercent: number; yPercent: number }[]>([]);
+
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   if (!isOpen) return null;
 
@@ -119,6 +132,34 @@ export const AutoBoardImageStudio: React.FC<AutoBoardImageStudioProps> = ({
     setIsProcessing(false);
   };
 
+  // 1-Click Auto Remoção de Manta
+  const handleAutoRemoveMat = async () => {
+    setIsProcessing(true);
+    const res = await autoRemoveMatBackground(currentPreview, matTolerance, targetBg);
+    pushState(res);
+    setIsProcessing(false);
+  };
+
+  // Clique na imagem durante Modo Polígono para adicionar pontos de corte
+  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isPolygonMode || !previewContainerRef.current) return;
+    const rect = previewContainerRef.current.getBoundingClientRect();
+    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+    setPolygonPoints([...polygonPoints, { xPercent: x, yPercent: y }]);
+  };
+
+  // Confirmar recorte poligonal
+  const handleApplyPolygonCrop = async () => {
+    if (polygonPoints.length < 3) return;
+    setIsProcessing(true);
+    const res = await cropByPolygon(currentPreview, polygonPoints, targetBg);
+    pushState(res);
+    setPolygonPoints([]);
+    setIsPolygonMode(false);
+    setIsProcessing(false);
+  };
+
   const handleUndo = () => {
     if (history.length > 1) {
       const newHist = [...history];
@@ -134,6 +175,8 @@ export const AutoBoardImageStudio: React.FC<AutoBoardImageStudioProps> = ({
     setBrightnessVal(1.0);
     setContrastVal(1.0);
     setSharpnessActive(false);
+    setPolygonPoints([]);
+    setIsPolygonMode(false);
   };
 
   const handleSaveAndApply = () => {
@@ -155,7 +198,7 @@ export const AutoBoardImageStudio: React.FC<AutoBoardImageStudioProps> = ({
                 Estúdio de Imagem Profissional de Bancada
               </h3>
               <p className="text-[11px] text-slate-400">
-                Otimização de fotos de microscópio, Raio-X PCB, Blueprint técnico e rotação
+                Remover fundo de manta (transparente/branco), Raio-X PCB, Blueprint e otimização
               </p>
             </div>
           </div>
@@ -169,7 +212,7 @@ export const AutoBoardImageStudio: React.FC<AutoBoardImageStudioProps> = ({
         <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
           {/* Transformações de Modo */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] text-slate-400 mr-1 uppercase font-bold">Modos Pro:</span>
+            <span className="text-[10px] text-slate-400 mr-1 uppercase font-bold">Filtros:</span>
 
             <button
               onClick={handleMicroscopeFix}
@@ -178,7 +221,7 @@ export const AutoBoardImageStudio: React.FC<AutoBoardImageStudioProps> = ({
               title="Reduz estouro de LED do microscópio e destaca serigrafia"
             >
               <Sparkles className="w-3.5 h-3.5 text-purple-400" />
-              <span>Otimizar Microscópio</span>
+              <span>Microscópio</span>
             </button>
 
             <button
@@ -209,33 +252,49 @@ export const AutoBoardImageStudio: React.FC<AutoBoardImageStudioProps> = ({
             </button>
           </div>
 
-          {/* Ferramentas de Enquadramento */}
+          {/* Ferramentas de Recorte e Fundo */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
-              onClick={() => setShowSliders(s => !s)}
+              onClick={() => {
+                setShowBgRemover(b => !b);
+                setShowSliders(false);
+              }}
+              className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-bold transition shadow-sm ${
+                showBgRemover
+                  ? 'bg-rose-600 text-white border-rose-400 animate-pulse'
+                  : 'bg-rose-950/70 hover:bg-rose-900 text-rose-300 border-rose-700/60'
+              }`}
+            >
+              <Scissors className="w-3.5 h-3.5" />
+              <span>Recortar Fundo</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setShowSliders(s => !s);
+                setShowBgRemover(false);
+              }}
               className={`px-2.5 py-1.5 rounded-xl border flex items-center gap-1 text-xs font-semibold ${
                 showSliders ? 'bg-indigo-600 text-white border-indigo-400' : 'bg-slate-900 text-slate-300 border-slate-800'
               }`}
             >
               <Sliders className="w-3.5 h-3.5" />
-              <span>Ajustes Manuais</span>
+              <span>Ajustes</span>
             </button>
 
             <button
               onClick={handleRotate}
               disabled={isProcessing}
               className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center gap-1"
-              title="Girar 90 graus"
             >
               <RotateCw className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Girar 90°</span>
+              <span>90°</span>
             </button>
 
             <button
               onClick={handleFlip}
               disabled={isProcessing}
               className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center gap-1"
-              title="Espelhar verso"
             >
               <FlipHorizontal className="w-3.5 h-3.5 text-cyan-400" />
               <span>Espelhar</span>
@@ -245,13 +304,113 @@ export const AutoBoardImageStudio: React.FC<AutoBoardImageStudioProps> = ({
               onClick={() => handleCropMargins(8)}
               disabled={isProcessing}
               className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 flex items-center gap-1"
-              title="Aparar 8% das bordas da mesa de bancada"
             >
               <Crop className="w-3.5 h-3.5 text-amber-400" />
-              <span>Cortar Bordas</span>
+              <span>Aparar 8%</span>
             </button>
           </div>
         </div>
+
+        {/* Painel Expansível de Recorte de Fundo */}
+        {showBgRemover && (
+          <div className="bg-slate-950 p-4 rounded-2xl border border-rose-500/40 space-y-3 text-xs animate-slideDown">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <span className="font-bold text-slate-300">Novo Fundo:</span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setTargetBg('transparent')}
+                    className={`px-3 py-1 rounded-lg font-bold border transition ${
+                      targetBg === 'transparent'
+                        ? 'bg-rose-600 text-white border-rose-400'
+                        : 'bg-slate-900 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    Transparente (PNG)
+                  </button>
+                  <button
+                    onClick={() => setTargetBg('white')}
+                    className={`px-3 py-1 rounded-lg font-bold border transition ${
+                      targetBg === 'white'
+                        ? 'bg-white text-slate-900 border-white'
+                        : 'bg-slate-900 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    Branco Puro (#FFF)
+                  </button>
+                  <button
+                    onClick={() => setTargetBg('dark')}
+                    className={`px-3 py-1 rounded-lg font-bold border transition ${
+                      targetBg === 'dark'
+                        ? 'bg-slate-800 text-cyan-300 border-cyan-500'
+                        : 'bg-slate-900 text-slate-400 border-slate-800'
+                    }`}
+                  >
+                    Preto Bancada
+                  </button>
+                </div>
+              </div>
+
+              {/* Botões de Ação de Recorte */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleAutoRemoveMat}
+                  disabled={isProcessing}
+                  className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl shadow transition flex items-center gap-1.5"
+                >
+                  <Wand2 className="w-3.5 h-3.5" /> Auto Remover Manta
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsPolygonMode(m => !m);
+                    setPolygonPoints([]);
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-bold border transition flex items-center gap-1.5 ${
+                    isPolygonMode
+                      ? 'bg-amber-600 text-white border-amber-400'
+                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  <span>{isPolygonMode ? 'Cancelar Pontos' : 'Recorte por 4 Cantos'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Slider de Tolerância */}
+            <div className="flex items-center gap-4 text-[11px] text-slate-400">
+              <span>Sensibilidade da Cor da Manta:</span>
+              <input
+                type="range"
+                min="15"
+                max="90"
+                value={matTolerance}
+                onChange={(e) => setMatTolerance(parseInt(e.target.value))}
+                className="flex-1 max-w-xs"
+              />
+              <span className="font-mono text-rose-400 font-bold">{matTolerance}</span>
+              <span className="text-slate-500">(Ajuste se apagar parte da placa ou sobrar fundo)</span>
+            </div>
+
+            {/* Instrução Modo Polígono */}
+            {isPolygonMode && (
+              <div className="p-2.5 bg-amber-950/60 border border-amber-500/50 rounded-xl flex items-center justify-between text-amber-300">
+                <span>
+                  📍 <strong>Modo 4 Cantos:</strong> Clique nos 4 cantos da placa na imagem abaixo ({polygonPoints.length} pontos marcados).
+                </span>
+                {polygonPoints.length >= 3 && (
+                  <button
+                    onClick={handleApplyPolygonCrop}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center gap-1"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Cortar Fundo Fora dos Pontos
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Painel Expansível de Sliders Manuais */}
         {showSliders && (
@@ -310,18 +469,62 @@ export const AutoBoardImageStudio: React.FC<AutoBoardImageStudioProps> = ({
           </div>
         )}
 
-        {/* Área de Visualização com a Foto em Tempo Real */}
-        <div className="flex-1 min-h-[350px] bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-4 relative">
-          <img
-            src={currentPreview}
-            alt="Preview da Placa"
-            className="max-h-[500px] max-w-full object-contain rounded-xl shadow-2xl"
-          />
+        {/* Área de Visualização com Padrão Xadrez para Fundo Transparente */}
+        <div 
+          className={`flex-1 min-h-[360px] rounded-2xl border border-slate-800 overflow-hidden flex items-center justify-center p-4 relative ${
+            targetBg === 'white' && showBgRemover ? 'bg-white' : 'bg-slate-950'
+          }`}
+          style={{
+            backgroundImage: (targetBg === 'transparent' && showBgRemover)
+              ? 'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%)'
+              : 'none',
+            backgroundSize: '20px 20px'
+          }}
+        >
+          <div
+            ref={previewContainerRef}
+            onClick={handleCanvasClick}
+            className={`relative max-h-[500px] max-w-full inline-block ${
+              isPolygonMode ? 'cursor-crosshair' : 'cursor-default'
+            }`}
+          >
+            <img
+              src={currentPreview}
+              alt="Preview da Placa"
+              className="max-h-[500px] max-w-full object-contain rounded-xl shadow-2xl block"
+            />
+
+            {/* Overlay SVG dos pontos de corte poligonal */}
+            {isPolygonMode && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
+                {polygonPoints.length > 1 && (
+                  <polygon
+                    points={polygonPoints.map(p => `${p.xPercent}%,${p.yPercent}%`).join(' ')}
+                    fill="rgba(244, 63, 94, 0.25)"
+                    stroke="#f43f5e"
+                    strokeWidth="3"
+                    strokeDasharray="6 3"
+                  />
+                )}
+                {polygonPoints.map((p, idx) => (
+                  <circle
+                    key={idx}
+                    cx={`${p.xPercent}%`}
+                    cy={`${p.yPercent}%`}
+                    r="6"
+                    fill="#f43f5e"
+                    stroke="#ffffff"
+                    strokeWidth="2"
+                  />
+                ))}
+              </svg>
+            )}
+          </div>
 
           {isProcessing && (
-            <div className="absolute inset-0 bg-black/70 flex items-center justify-center gap-2 text-cyan-300 font-bold text-xs">
+            <div className="absolute inset-0 bg-black/70 flex items-center justify-center gap-2 text-cyan-300 font-bold text-xs z-30">
               <Wand2 className="w-5 h-5 animate-spin text-cyan-400" />
-              <span>Processando Imagem com IA de Bancada...</span>
+              <span>Processando Recorte de Fundo...</span>
             </div>
           )}
         </div>
