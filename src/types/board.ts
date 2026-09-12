@@ -1,4 +1,4 @@
-﻿export type PinType = 'power_in' | 'power_out' | 'battery' | 'signal' | 'ground' | 'test_point';
+export type PinType = 'power_in' | 'power_out' | 'battery' | 'signal' | 'ground' | 'test_point';
 
 export interface PinoutItem {
   name: string;
@@ -48,11 +48,13 @@ export interface BoardComponentMarker {
   kind: ComponentKind;
   reference: string; // Ex: L3001, TH3000, FPC_MAIN, U3001
   name: string;
+  side?: 'A' | 'B'; // Lado A (Frente) ou Lado B (Verso)
   xPercent: number; // 0 a 100 na imagem
   yPercent: number; // 0 a 100 na imagem
   functionDesc: string;
   diodeScaleMv?: number;
   voltage?: string;
+  netName?: string; // Malha associada (ex: VBUS_5V, VBAT)
   faultSymptom?: string;
   repairTip?: string;
 }
@@ -103,8 +105,10 @@ export interface BoardProject {
   };
   keyChips: string[];
   schematicSvg: string; // Vetor SVG renderizável
-  realPhotoUrl?: string; // Foto real de bancada (opcional ou base64)
+  realPhotoUrl?: string; // Foto real de bancada (Lado A)
   visualStyle?: VisualStyle;
+  realPhotoBackUrl?: string; // Foto real de bancada (Lado B / Verso)
+  visualStyleBack?: VisualStyle;
   markers?: BoardComponentMarker[]; // Bobinas, conectores, CIs mapeados
   commonFaults?: CommonFault[]; // Defeitos comuns e soluções
   pinouts: PinoutItem[];
