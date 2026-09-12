@@ -1,7 +1,18 @@
 import React, { useState, useRef } from 'react';
-import type { BoardProject, TestPoint } from '../types/board';
+import type { BoardProject, TestPoint, BoardComponentMarker, VisualStyle } from '../types/board';
 import { WatermarkOverlay } from './WatermarkOverlay';
-import { ZoomIn, ZoomOut, RotateCcw, Maximize2, X, Tv, Sliders, Activity, Layers } from 'lucide-react';
+import { 
+  ZoomIn, 
+  ZoomOut, 
+  RotateCcw, 
+  Maximize2, 
+  X, 
+  Tv, 
+  Activity, 
+  Layers,
+  Wrench,
+  Cpu
+} from 'lucide-react';
 
 interface ProjectorViewProps {
   board: BoardProject;
@@ -14,8 +25,12 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({ board, onClose }) 
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [selectedTP, setSelectedTP] = useState<TestPoint | null>(board.testPoints[0] || null);
-  const [showPinout, setShowPinout] = useState<boolean>(true);
-  const [highContrast, setHighContrast] = useState<boolean>(false);
+  const [selectedMarker, setSelectedMarker] = useState<BoardComponentMarker | null>(
+    board.markers && board.markers[0] ? board.markers[0] : null
+  );
+  const [showSidePanel, setShowSidePanel] = useState<boolean>(true);
+  const [sidebarTab, setSidebarTab] = useState<'multimeter' | 'markers' | 'faults' | 'pinout'>('multimeter');
+  const [visualStyle, setVisualStyle] = useState<VisualStyle>('normal');
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -56,6 +71,19 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({ board, onClose }) 
     }
   };
 
+  const getStyleFilterClass = () => {
+    switch (visualStyle) {
+      case 'blueprint':
+        return 'invert hue-rotate-180 brightness-90 saturate-150 contrast-125';
+      case 'xray':
+        return 'invert hue-rotate-90 brightness-110 contrast-200';
+      case 'edges':
+        return 'contrast-200 brightness-125 sepia';
+      default:
+        return '';
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col text-slate-100 overflow-hidden select-none no-copy-shield">
       {/* Top Bar Projetor */}
@@ -63,17 +91,36 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({ board, onClose }) 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3 py-1 bg-amber-950/70 border border-amber-500/40 rounded-lg text-amber-400 font-mono text-xs">
             <Tv className="w-4 h-4 animate-pulse" />
-            <span className="font-bold">MODO PROJETOR ATIVO</span>
+            <span className="font-bold">PROJETOR BANCADA</span>
           </div>
           <span className="font-mono text-xs text-slate-400">|</span>
           <div>
             <h2 className="text-sm font-bold text-white leading-none">{board.title}</h2>
-            <p className="text-[10px] text-cyan-400 font-mono mt-0.5">{board.modelCode} • {board.category}</p>
+            <p className="text-[10px] text-cyan-400 font-mono mt-0.5">{board.modelCode}</p>
           </div>
         </div>
 
         {/* Toolbar Controls */}
         <div className="flex items-center gap-2">
+          {/* Alternador de Estilo */}
+          <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl p-0.5 text-xs font-mono">
+            {(['normal', 'blueprint', 'xray'] as VisualStyle[]).map((s) => (
+              <button
+                key={s}
+                onClick={() => setVisualStyle(s)}
+                className={`px-2 py-1 rounded-lg transition ${
+                  visualStyle === s
+                    ? 'bg-cyan-600 text-white font-bold'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {s === 'normal' && 'Normal'}
+                {s === 'blueprint' && 'Blueprint'}
+                {s === 'xray' && 'Raio-X'}
+              </button>
+            ))}
+          </div>
+
           {/* Zoom controls */}
           <div className="flex items-center bg-slate-900 border border-slate-700 rounded-xl p-0.5 text-xs font-mono">
             <button
@@ -102,30 +149,17 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({ board, onClose }) 
             </button>
           </div>
 
-          {/* Toggle contrast */}
+          {/* Toggle sidebar */}
           <button
-            onClick={() => setHighContrast(!highContrast)}
+            onClick={() => setShowSidePanel(!showSidePanel)}
             className={`px-3 py-1.5 rounded-xl border text-xs font-mono transition flex items-center gap-1.5 ${
-              highContrast
-                ? 'bg-amber-500 text-black border-amber-400 font-bold'
-                : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800'
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>Alto Contraste</span>
-          </button>
-
-          {/* Toggle pinout side */}
-          <button
-            onClick={() => setShowPinout(!showPinout)}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-mono transition flex items-center gap-1.5 ${
-              showPinout
+              showSidePanel
                 ? 'bg-cyan-950 text-cyan-300 border-cyan-500/40'
                 : 'bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800'
             }`}
           >
             <Layers className="w-3.5 h-3.5" />
-            <span>Pinagem</span>
+            <span>Painel</span>
           </button>
 
           {/* Fullscreen */}
@@ -157,9 +191,7 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({ board, onClose }) 
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onWheel={handleWheel}
-          className={`flex-1 relative overflow-hidden cursor-${isDragging ? 'grabbing' : 'grab'} ${
-            highContrast ? 'contrast-150 brightness-110' : ''
-          }`}
+          className={`flex-1 relative overflow-hidden cursor-${isDragging ? 'grabbing' : 'grab'}`}
         >
           {/* MARCA D'ÁGUA OBRIGATÓRIA DA SAFEPLACA */}
           <WatermarkOverlay boardCode={board.modelCode} intensity="normal" showBadge={true} />
@@ -174,142 +206,209 @@ export const ProjectorView: React.FC<ProjectorViewProps> = ({ board, onClose }) 
             className="w-full h-full flex items-center justify-center p-8 pointer-events-none"
           >
             <div 
-              className="w-[920px] max-w-none shadow-2xl rounded-xl overflow-hidden border border-slate-800/80 bg-slate-950"
-              dangerouslySetInnerHTML={{ __html: board.schematicSvg }}
-            />
-          </div>
+              className={`relative w-[960px] max-w-none shadow-2xl rounded-xl overflow-hidden border border-slate-800/80 bg-slate-950 transition duration-300 ${getStyleFilterClass()}`}
+            >
+              <div dangerouslySetInnerHTML={{ __html: board.schematicSvg }} />
 
-          {/* Dica flutuante de navegação */}
-          <div className="absolute top-4 left-4 z-20 pointer-events-none bg-slate-950/70 backdrop-blur-sm border border-slate-800 rounded-lg px-3 py-1.5 text-[11px] font-mono text-slate-400">
-            Use a roda do mouse para <span className="text-cyan-300 font-bold">Zoom</span> ou arraste para movimentar a bancada.
+              {/* Marcadores sobrepostos se existirem */}
+              {board.markers && board.markers.map((marker) => (
+                <div
+                  key={marker.id}
+                  style={{
+                    left: `${marker.xPercent}%`,
+                    top: `${marker.yPercent}%`,
+                  }}
+                  className="absolute -translate-x-1/2 -translate-y-1/2 pointer-events-auto cursor-pointer"
+                  onClick={() => {
+                    setSelectedMarker(marker);
+                    setSidebarTab('markers');
+                    setShowSidePanel(true);
+                  }}
+                >
+                  <div className="w-6 h-6 rounded-full bg-cyan-600 border-2 border-white flex items-center justify-center text-[9px] font-black text-white shadow-xl hover:scale-125 transition">
+                    {marker.reference.slice(0, 2)}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Drawer Lateral de Pinagem & Multímetro */}
-        {showPinout && (
-          <aside className="w-80 lg:w-96 bg-slate-950/95 border-l border-slate-800 flex flex-col shrink-0 z-30 shadow-2xl overflow-hidden">
-            {/* Header Lateral */}
-            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-cyan-400" />
-                <h3 className="font-bold text-sm text-white">Inspeção &amp; Medições</h3>
-              </div>
-              <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                PROJETOR BANCADA
-              </span>
+        {/* Drawer Lateral de Diagnóstico & Medição */}
+        {showSidePanel && (
+          <aside className="w-80 lg:w-96 bg-slate-950/95 border-l border-slate-800 flex flex-col shrink-0 z-30 shadow-2xl overflow-hidden font-mono">
+            {/* Header Lateral com Abas */}
+            <div className="p-2 border-b border-slate-800 bg-slate-900/60 flex items-center justify-around gap-1 text-[11px]">
+              <button
+                onClick={() => setSidebarTab('multimeter')}
+                className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
+                  sidebarTab === 'multimeter'
+                    ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5" />
+                <span>Multímetro</span>
+              </button>
+
+              {board.markers && board.markers.length > 0 && (
+                <button
+                  onClick={() => setSidebarTab('markers')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
+                    sidebarTab === 'markers'
+                      ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>Componentes</span>
+                </button>
+              )}
+
+              {board.commonFaults && board.commonFaults.length > 0 && (
+                <button
+                  onClick={() => setSidebarTab('faults')}
+                  className={`flex-1 py-1.5 rounded-lg font-bold transition flex items-center justify-center gap-1 ${
+                    sidebarTab === 'faults'
+                      ? 'bg-amber-950 text-amber-300 border border-amber-700/50'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Wrench className="w-3.5 h-3.5" />
+                  <span>Defeitos</span>
+                </button>
+              )}
             </div>
 
             {/* Conteúdo com rolagem */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Simulador de Medição de Multímetro */}
-              {selectedTP && (
-                <div className="bg-slate-900/90 border-2 border-cyan-500/50 rounded-2xl p-4 shadow-lg shadow-cyan-950/40">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 font-mono text-xs font-bold border border-cyan-700/50">
-                      {selectedTP.id}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400 uppercase">
-                      Sinal: {selectedTP.signalType}
-                    </span>
-                  </div>
+              {/* ABA MULTÍMETRO */}
+              {sidebarTab === 'multimeter' && (
+                <>
+                  {selectedTP && (
+                    <div className="bg-slate-900/90 border-2 border-cyan-500/50 rounded-2xl p-4 shadow-lg shadow-cyan-950/40">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 text-xs font-bold border border-cyan-700/50">
+                          {selectedTP.id}
+                        </span>
+                        {selectedTP.diodeScaleMv && (
+                          <span className="text-[10px] text-amber-300 font-bold bg-amber-950/60 px-2 py-0.5 rounded">
+                            DIODO: {selectedTP.diodeScaleMv} mV
+                          </span>
+                        )}
+                      </div>
 
-                  <h4 className="font-bold text-white text-sm mb-1">{selectedTP.label}</h4>
-                  <p className="text-xs text-slate-400 mb-3">{selectedTP.description}</p>
+                      <h4 className="font-bold text-white text-sm mb-1">{selectedTP.label}</h4>
+                      <p className="text-xs text-slate-400 mb-3">{selectedTP.description}</p>
 
-                  {/* Display Digital do Multímetro Virtual */}
-                  <div className="bg-black/80 border border-slate-700 rounded-xl p-3 font-mono text-center mb-3">
-                    <span className="text-[10px] text-slate-400 block">VALOR ESPERADO NO MULTÍMETRO</span>
-                    <span className="text-2xl font-black text-amber-400 tracking-wider">
-                      {selectedTP.expectedVoltage}
-                    </span>
-                    <span className="text-[10px] text-slate-400 block mt-0.5">Tolerância: {selectedTP.tolerance}</span>
-                  </div>
+                      <div className="bg-black/80 border border-slate-700 rounded-xl p-3 text-center mb-3">
+                        <span className="text-[10px] text-slate-400 block">VALOR ESPERADO NO MULTÍMETRO</span>
+                        <span className="text-2xl font-black text-amber-400 tracking-wider">
+                          {selectedTP.expectedVoltage}
+                        </span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Tolerância: {selectedTP.tolerance}</span>
+                      </div>
 
-                  {/* Sintomas de Falha */}
-                  <div className="space-y-1.5 text-xs">
-                    <div className="bg-emerald-950/40 border border-emerald-800/40 p-2 rounded-lg text-emerald-300">
-                      <span className="font-bold block text-[10px] uppercase text-emerald-400">Comportamento Normal:</span>
-                      {selectedTP.normalBehavior}
+                      <div className="space-y-1.5 text-xs">
+                        <div className="bg-emerald-950/40 border border-emerald-800/40 p-2 rounded-lg text-emerald-300">
+                          <span className="font-bold block text-[10px] uppercase text-emerald-400">Normal:</span>
+                          {selectedTP.normalBehavior}
+                        </div>
+                        <div className="bg-red-950/40 border border-red-800/40 p-2 rounded-lg text-red-300">
+                          <span className="font-bold block text-[10px] uppercase text-red-400">Se com Defeito:</span>
+                          {selectedTP.faultSymptom}
+                        </div>
+                      </div>
                     </div>
-                    <div className="bg-red-950/40 border border-red-800/40 p-2 rounded-lg text-red-300">
-                      <span className="font-bold block text-[10px] uppercase text-red-400">Se apresentar defeito:</span>
-                      {selectedTP.faultSymptom}
+                  )}
+
+                  <div>
+                    <label className="text-[11px] text-slate-400 block mb-2 uppercase tracking-wide">
+                      Pontos de Teste na Placa:
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {board.testPoints.map((tp) => (
+                        <button
+                          key={tp.id}
+                          onClick={() => setSelectedTP(tp)}
+                          className={`p-2 rounded-xl text-left text-xs border transition flex items-center justify-between ${
+                            selectedTP?.id === tp.id
+                              ? 'bg-cyan-950 text-cyan-200 border-cyan-500 shadow-md shadow-cyan-950/50'
+                              : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                          }`}
+                        >
+                          <span className="font-bold">{tp.id}</span>
+                          <span className="text-[10px] text-amber-400">{tp.expectedVoltage.split(' ')[0]}</span>
+                        </button>
+                      ))}
                     </div>
+                  </div>
+                </>
+              )}
+
+              {/* ABA COMPONENTES */}
+              {sidebarTab === 'markers' && (
+                <div className="space-y-3">
+                  {selectedMarker ? (
+                    <div className="bg-slate-900 border border-cyan-500/40 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <span className="font-bold text-white text-sm">{selectedMarker.name}</span>
+                        <span className="text-cyan-400 font-bold text-xs">{selectedMarker.reference}</span>
+                      </div>
+                      <p className="text-xs text-slate-400">{selectedMarker.functionDesc}</p>
+                      <div className="grid grid-cols-2 gap-2 text-center text-xs">
+                        <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                          <span className="text-[10px] text-slate-400 block">Diodo (mV)</span>
+                          <span className="font-black text-amber-400">{selectedMarker.diodeScaleMv || 'N/A'}</span>
+                        </div>
+                        <div className="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                          <span className="text-[10px] text-slate-400 block">Tensão</span>
+                          <span className="font-black text-cyan-400">{selectedMarker.voltage || 'N/A'}</span>
+                        </div>
+                      </div>
+                      {selectedMarker.repairTip && (
+                        <div className="bg-emerald-950/40 p-2 rounded-xl border border-emerald-800/40 text-xs text-emerald-300">
+                          <span className="font-bold block text-[10px] uppercase text-emerald-400">Dica Bancada:</span>
+                          {selectedMarker.repairTip}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-400">Selecione um componente abaixo.</p>
+                  )}
+
+                  <div className="space-y-1.5">
+                    {board.markers && board.markers.map((m) => (
+                      <button
+                        key={m.id}
+                        onClick={() => setSelectedMarker(m)}
+                        className={`w-full p-2 rounded-xl text-left text-xs border transition flex items-center justify-between ${
+                          selectedMarker?.id === m.id
+                            ? 'bg-cyan-950 text-cyan-200 border-cyan-500'
+                            : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
+                        }`}
+                      >
+                        <span className="font-bold">{m.reference}</span>
+                        <span className="text-[10px] text-slate-400">{m.name}</span>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
 
-              {/* Lista de Pontos de Teste (Clicáveis) */}
-              <div>
-                <label className="text-[11px] font-mono text-slate-400 block mb-2 uppercase tracking-wide">
-                  Pontos de Teste na Placa:
-                </label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {board.testPoints.map((tp) => (
-                    <button
-                      key={tp.id}
-                      onClick={() => setSelectedTP(tp)}
-                      className={`p-2 rounded-xl text-left font-mono text-xs border transition flex items-center justify-between ${
-                        selectedTP?.id === tp.id
-                          ? 'bg-cyan-950 text-cyan-200 border-cyan-500 shadow-md shadow-cyan-950/50'
-                          : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
-                      }`}
-                    >
-                      <span className="font-bold">{tp.id}</span>
-                      <span className="text-[10px] text-amber-400">{tp.expectedVoltage.split(' ')[0]}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Pinagem de Conexão Rápida */}
-              <div>
-                <label className="text-[11px] font-mono text-slate-400 block mb-2 uppercase tracking-wide">
-                  Tabela de Pinos &amp; Ligações:
-                </label>
-                <div className="space-y-1.5">
-                  {board.pinouts.map((pin, index) => (
-                    <div
-                      key={index}
-                      className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between text-xs font-mono"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: pin.wireColorHex || '#38bdf8' }}
-                        />
-                        <span className="font-bold text-white">{pin.name}</span>
+              {/* ABA DEFEITOS RÁPIDOS */}
+              {sidebarTab === 'faults' && (
+                <div className="space-y-3">
+                  {board.commonFaults && board.commonFaults.map((f) => (
+                    <div key={f.id} className="bg-slate-900 p-3 rounded-2xl border border-amber-500/30 text-xs space-y-2">
+                      <span className="font-bold text-amber-400 block text-xs">{f.title}</span>
+                      <p className="text-slate-300 text-[11px] font-sans">{f.symptom}</p>
+                      <div className="bg-emerald-950/40 p-2 rounded-lg border border-emerald-800/40 text-emerald-300 text-[11px] font-sans">
+                        <span className="font-bold text-[10px] text-emerald-400 block uppercase">Solução:</span>
+                        {f.solution}
                       </div>
-                      <span className="text-cyan-300 font-semibold">{pin.voltage}</span>
                     </div>
                   ))}
-                </div>
-              </div>
-
-              {/* Tabela de Programação Rprog se existir */}
-              {board.progTable && board.progTable.length > 0 && (
-                <div>
-                  <label className="text-[11px] font-mono text-amber-400 block mb-2 uppercase tracking-wide font-bold">
-                    Resistor Rprog • Ajuste de Corrente:
-                  </label>
-                  <div className="bg-slate-900 rounded-xl border border-amber-500/30 overflow-hidden text-[11px] font-mono">
-                    <table className="w-full text-left">
-                      <thead className="bg-slate-950 border-b border-slate-800 text-slate-400">
-                        <tr>
-                          <th className="p-2">Resistor</th>
-                          <th className="p-2">Corrente</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60">
-                        {board.progTable.map((p, i) => (
-                          <tr key={i} className="hover:bg-slate-800/40">
-                            <td className="p-2 font-bold text-cyan-300">{p.resistor}</td>
-                            <td className="p-2 text-amber-300">{p.current}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
                 </div>
               )}
             </div>

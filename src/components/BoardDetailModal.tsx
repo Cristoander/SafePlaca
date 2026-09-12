@@ -2,7 +2,22 @@ import React, { useState } from 'react';
 import type { BoardProject } from '../types/board';
 import { WatermarkOverlay } from './WatermarkOverlay';
 import { notifySecurityViolation } from '../utils/security';
-import { X, Tv, Lock, Activity, Layers, ListOrdered, AlertTriangle, CheckCircle2, Flame } from 'lucide-react';
+import { ComponentMarkerEditor } from './ComponentMarkerEditor';
+import { FaultsTroubleshootingView } from './FaultsTroubleshootingView';
+import { 
+  X, 
+  Tv, 
+  Lock, 
+  Activity, 
+  Layers, 
+  ListOrdered, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Flame,
+  Wrench,
+  Smartphone,
+  Cpu
+} from 'lucide-react';
 
 interface BoardDetailModalProps {
   board: BoardProject;
@@ -15,12 +30,12 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
   onClose,
   onOpenProjector,
 }) => {
-  const [activeTab, setActiveTab] = useState<'schematic' | 'pinout' | 'bom' | 'notes'>('schematic');
+  const [activeTab, setActiveTab] = useState<'components' | 'faults' | 'schematic' | 'pinout' | 'bom' | 'notes'>('components');
 
   const handleDownloadAttempt = (type: 'pdf' | 'image') => {
     notifySecurityViolation(
       `download_${type}`,
-      `O download de ${type.toUpperCase()} e diagramas originais foi bloqueado pelo sistema SafePlaca. Documentos restritos para visualização segura em bancada.`
+      `O download de ${type.toUpperCase()} e diagramas foi bloqueado pelo sistema SafePlaca. Os esquemas e mapas de placas são protegidos com marca d'água para visualização em bancada.`
     );
   };
 
@@ -34,6 +49,12 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
               <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-md bg-cyan-950 text-cyan-300 border border-cyan-800/60">
                 {board.modelCode}
               </span>
+              {board.deviceModel && (
+                <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-indigo-950 text-indigo-300 border border-indigo-800/60 flex items-center gap-1 font-bold">
+                  <Smartphone className="w-3 h-3 text-indigo-400" />
+                  {board.deviceModel}
+                </span>
+              )}
               <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
                 {board.category}
               </span>
@@ -71,20 +92,44 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
         <div className="px-5 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-2 overflow-x-auto">
           <div className="flex gap-2 py-2">
             <button
+              onClick={() => setActiveTab('components')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
+                activeTab === 'components'
+                  ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50 shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Cpu className="w-4 h-4 text-cyan-400" />
+              <span>Placa &amp; Componentes</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('faults')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
+                activeTab === 'faults'
+                  ? 'bg-amber-950 text-amber-300 border border-amber-700/50 shadow-md'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Wrench className="w-4 h-4 text-amber-400" />
+              <span>Defeitos &amp; Como Arrumar</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('schematic')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
                 activeTab === 'schematic'
-                  ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50'
+                  ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50 shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Activity className="w-4 h-4" />
-              <span>Esquema Elétrico</span>
+              <span>Esquema Geral</span>
             </button>
 
             <button
               onClick={() => setActiveTab('pinout')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
                 activeTab === 'pinout'
                   ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50'
                   : 'text-slate-400 hover:text-slate-200'
@@ -96,26 +141,26 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
 
             <button
               onClick={() => setActiveTab('bom')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
                 activeTab === 'bom'
                   ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <ListOrdered className="w-4 h-4" />
-              <span>Componentes BOM</span>
+              <span>BOM ({board.bom.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('notes')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold transition flex items-center gap-2 ${
                 activeTab === 'notes'
                   ? 'bg-cyan-950 text-cyan-300 border border-cyan-700/50'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Flame className="w-4 h-4 text-amber-400" />
-              <span>Alertas &amp; Bancada</span>
+              <span>Alertas</span>
             </button>
           </div>
 
@@ -142,21 +187,31 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
 
         {/* Conteúdo Principal */}
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
-          {/* TAB 1: Esquema Elétrico */}
+          {/* TAB: Mapeamento de Componentes (Foto / Blueprint / Raio-X) */}
+          {activeTab === 'components' && (
+            <ComponentMarkerEditor board={board} />
+          )}
+
+          {/* TAB: Defeitos Comuns & Soluções */}
+          {activeTab === 'faults' && (
+            <FaultsTroubleshootingView
+              faults={board.commonFaults || []}
+              
+            />
+          )}
+
+          {/* TAB: Esquema Elétrico */}
           {activeTab === 'schematic' && (
             <div className="space-y-4">
-              {/* Área do Esquema com Marca d'Água Obrigatória */}
               <div className="relative rounded-2xl overflow-hidden border border-slate-800 bg-slate-950 shadow-2xl p-4">
-                {/* MARCA D'ÁGUA ATIVA AUTOMATICAMENTE */}
                 <WatermarkOverlay boardCode={board.modelCode} intensity="normal" />
-
                 <div 
                   className="w-full flex items-center justify-center pointer-events-none"
                   dangerouslySetInnerHTML={{ __html: board.schematicSvg }}
                 />
               </div>
 
-              {/* Pontos de Teste abaixo do esquema */}
+              {/* Pontos de Teste */}
               <div className="bg-slate-950/60 rounded-2xl border border-slate-800 p-4">
                 <h4 className="text-sm font-bold text-white mb-3 font-mono flex items-center gap-2">
                   <Activity className="w-4 h-4 text-cyan-400" />
@@ -167,9 +222,16 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
                     <div key={tp.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono">
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-bold text-cyan-400">{tp.id}: {tp.label}</span>
-                        <span className="text-amber-400 font-bold bg-amber-950/40 px-2 py-0.5 rounded border border-amber-800/40">
-                          {tp.expectedVoltage}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {tp.diodeScaleMv && (
+                            <span className="text-[10px] text-amber-300 font-bold bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40">
+                              {tp.diodeScaleMv} mV
+                            </span>
+                          )}
+                          <span className="text-cyan-300 font-bold bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
+                            {tp.expectedVoltage}
+                          </span>
+                        </div>
                       </div>
                       <p className="text-slate-400 text-[11px] mb-1">{tp.description}</p>
                       <p className="text-emerald-400/90 text-[10px]">Normal: {tp.normalBehavior}</p>
@@ -181,7 +243,7 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
             </div>
           )}
 
-          {/* TAB 2: Pinagem & Conexões */}
+          {/* TAB: Pinagem & Conexões */}
           {activeTab === 'pinout' && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -198,9 +260,11 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
                         />
                         <span className="font-mono font-bold text-white text-sm">{pin.name}</span>
                       </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                        {pin.pinType.toUpperCase()}
-                      </span>
+                      {pin.diodeScaleMv && (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-300 font-bold border border-amber-800/40">
+                          {pin.diodeScaleMv} mV
+                        </span>
+                      )}
                     </div>
 
                     <div className="bg-slate-900 p-2 rounded-lg font-mono text-xs text-cyan-300 font-bold">
@@ -216,7 +280,7 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
             </div>
           )}
 
-          {/* TAB 3: Componentes BOM */}
+          {/* TAB: Componentes BOM */}
           {activeTab === 'bom' && (
             <div className="space-y-4">
               <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden font-mono text-xs">
@@ -246,7 +310,7 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
             </div>
           )}
 
-          {/* TAB 4: Notas e Alertas de Bancada */}
+          {/* TAB: Notas e Alertas de Bancada */}
           {activeTab === 'notes' && (
             <div className="space-y-4">
               <div className="space-y-2.5">
