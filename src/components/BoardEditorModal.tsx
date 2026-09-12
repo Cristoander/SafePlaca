@@ -5,9 +5,10 @@ import { X, Save } from 'lucide-react';
 interface BoardEditorModalProps {
   onClose: () => void;
   onSave: (newBoard: BoardProject) => void;
+  initialFolderId?: string;
 }
 
-export const BoardEditorModal: React.FC<BoardEditorModalProps> = ({ onClose, onSave }) => {
+export const BoardEditorModal: React.FC<BoardEditorModalProps> = ({ onClose, onSave, initialFolderId }) => {
   const [title, setTitle] = useState('');
   const [modelCode, setModelCode] = useState('MOD-CHRG-');
   const [category, setCategory] = useState<BoardCategory>('Carga / Li-ion / BMS');
@@ -40,6 +41,7 @@ export const BoardEditorModal: React.FC<BoardEditorModalProps> = ({ onClose, onS
       title: title || 'Nova Placa de Carga',
       modelCode: modelCode || 'MOD-CUSTOM',
       category,
+      folderId: initialFolderId,
       description: description || 'Projeto de placa de carga cadastrado na bancada.',
       status: 'em_bancada',
       vinMin: Number(vinMin),

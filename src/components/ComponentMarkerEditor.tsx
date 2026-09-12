@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { BoardProject, BoardComponentMarker, VisualStyle, ComponentKind } from '../types/board';
 import { WatermarkOverlay } from './WatermarkOverlay';
+import { AutoBoardImageStudio } from './AutoBoardImageStudio';
 import { compressImageFile } from '../utils/compressImage';
 import { 
   Sparkles, 
@@ -9,7 +10,8 @@ import {
   Trash2, 
   Crosshair,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  Wand2
 } from 'lucide-react';
 
 interface ComponentMarkerEditorProps {
@@ -32,6 +34,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
   const [pendingKind, setPendingKind] = useState<ComponentKind | null>(null);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [isStudioOpen, setIsStudioOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -312,14 +315,25 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
           </button>
 
           {currentPhoto && (
-            <button
-              onClick={handleRemovePhoto}
-              className="px-2 py-1 rounded-xl bg-red-950/70 hover:bg-red-900 text-red-300 text-xs border border-red-800/50 flex items-center gap-1 transition"
-              title="Remover foto e voltar ao desenho vetorial"
-            >
-              <RefreshCw className="w-3 h-3" />
-              <span>Voltar a Vetor</span>
-            </button>
+            <>
+              <button
+                onClick={handleRemovePhoto}
+                className="px-2 py-1 rounded-xl bg-red-950/70 hover:bg-red-900 text-red-300 text-xs border border-red-800/50 flex items-center gap-1 transition"
+                title="Remover foto e voltar ao desenho vetorial"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>Voltar a Vetor</span>
+              </button>
+
+              <button
+                onClick={() => setIsStudioOpen(true)}
+                className="px-3 py-1 rounded-xl bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-bold text-xs border border-cyan-400/50 shadow-md shadow-cyan-950 flex items-center gap-1.5 transition ml-1"
+                title="Abrir estúdio automático para cortar bordas, aplicar Raio-X ou Blueprint com 1 clique"
+              >
+                <Wand2 className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <span>Estúdio Auto: Cortar / Raio-X</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -545,6 +559,19 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Estúdio Automático de Imagem (Cortar, Raio-X, Blueprint) */}
+      {isStudioOpen && currentPhoto && (
+        <AutoBoardImageStudio
+          initialPhotoUrl={currentPhoto}
+          isOpen={isStudioOpen}
+          onClose={() => setIsStudioOpen(false)}
+          onApplyPhoto={(newUrl) => {
+            setCurrentPhoto(newUrl);
+            if (onUpdatePhoto) onUpdatePhoto(newUrl);
+          }}
+        />
+      )}
     </div>
   );
 };
