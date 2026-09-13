@@ -3,6 +3,7 @@ import type { BoardProject, BoardComponentMarker, VisualStyle, ComponentKind, Bo
 import { ProfessionalBoardWorkbench } from './ProfessionalBoardWorkbench';
 import { AutoBoardImageStudio } from './AutoBoardImageStudio';
 import { SchematicBuilderModal } from './SchematicBuilderModal';
+import { AutoComponentScannerModal } from './AutoComponentScannerModal';
 import { compressImageFile } from '../utils/compressImage';
 import { PREBUILT_COMPONENTS_LIBRARY, type PrebuiltComponentTemplate } from '../data/prebuiltComponents';
 import { 
@@ -51,6 +52,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [isPrebuiltOpen, setIsPrebuiltOpen] = useState(false);
   const [isSchematicBuilderOpen, setIsSchematicBuilderOpen] = useState(false);
+  const [isAutoScannerOpen, setIsAutoScannerOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,10 +78,15 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
           if (blob) {
             const compressed = await compressImageFile(blob);
             if (compressed) {
-              setCurrentPhoto(compressed);
+              if (activeSide === 'A') {
+                setCurrentPhoto(compressed);
+              } else {
+                setCurrentPhotoBack(compressed);
+              }
               if (onUpdatePhoto) onUpdatePhoto(compressed);
               setUploadSuccess(true);
-              setTimeout(() => setUploadSuccess(false), 3000);
+              setIsAutoScannerOpen(true);
+              setTimeout(() => setUploadSuccess(false), 5000);
             }
           }
         }
@@ -88,7 +95,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
 
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [onUpdatePhoto]);
+  }, [onUpdatePhoto, activeSide]);
 
   // Upload do arquivo PNG / JPG
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,8 +110,25 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
       }
       if (onUpdatePhoto) onUpdatePhoto(compressed);
       setUploadSuccess(true);
-      setTimeout(() => setUploadSuccess(false), 3000);
+      setIsAutoScannerOpen(true);
+      setTimeout(() => setUploadSuccess(false), 5000);
     }
+  };
+
+  // Aplicar marcadores detectados automaticamente pelo Scanner IA
+  const handleApplyAutoDetectedMarkers = (newMarkers: BoardComponentMarker[], mode: 'replace' | 'merge') => {
+    let updated: BoardComponentMarker[] = [];
+    if (mode === 'replace') {
+      const otherSideMarkers = markers.filter((m) => m.side && m.side !== activeSide);
+      updated = [...otherSideMarkers, ...newMarkers];
+    } else {
+      updated = [...markers, ...newMarkers];
+    }
+    setMarkers(updated);
+    if (newMarkers.length > 0) {
+      setSelectedMarker(newMarkers[0]);
+    }
+    if (onUpdateMarkers) onUpdateMarkers(updated);
   };
 
   // Adicionar marcador em posição específica com validação
@@ -383,16 +407,45 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                 <Wand2 className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
                 <span>Estúdio IA</span>
               </button>
+
+              <button
+                onClick={() => setIsAutoScannerOpen(true)}
+                className="px-3 py-1 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-extrabold text-xs border border-cyan-400/50 shadow-md shadow-cyan-950 flex items-center gap-1.5 transition ml-1"
+                title="Detectar e separar automaticamente todos os componentes na foto da placa"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                <span>⚡ Auto Separar Peças</span>
+              </button>
             </>
           )}
         </div>
       </div>
 
-      {/* Notificação de Sucesso */}
+      {/* Notificação de Sucesso com Ação Imediata do Scanner */}
       {uploadSuccess && (
-        <div className="bg-emerald-950/90 border border-emerald-500/60 rounded-xl p-2.5 text-xs text-emerald-300 flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span className="font-bold">Foto da placa carregada com sucesso na bancada!</span>
+        <div className="bg-gradient-to-r from-cyan-950/95 via-blue-950/90 to-purple-950/95 border border-cyan-500/60 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-2xl animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-cyan-500/20 text-cyan-400 rounded-xl border border-cyan-500/40">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-xs font-extrabold text-white flex items-center gap-1.5">
+                Foto da Placa Carregada com Sucesso!
+              </p>
+              <p className="text-[11px] text-slate-300">
+                O Scanner IA está pronto para separar todos os componentes automaticamente na foto.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsAutoScannerOpen(true)}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg shadow-cyan-950/50 flex items-center gap-1.5 transition"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+              <span>⚡ Separar Peças Agora</span>
+            </button>
+          </div>
         </div>
       )}
 
@@ -447,6 +500,7 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
             activeSide={activeSide}
             onToggleSide={setActiveSide}
             style={style}
+            onOpenAutoScanner={() => setIsAutoScannerOpen(true)}
           />
         </div>
 
@@ -779,6 +833,17 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
           onSaveSchematic={(newSvg) => {
             if (onUpdateSchematic) onUpdateSchematic(newSvg);
           }}
+        />
+      )}
+
+      {/* Auto Scanner de Peças por Visão Computacional */}
+      {isAutoScannerOpen && (currentPhoto || currentPhotoBack) && (
+        <AutoComponentScannerModal
+          photoUrl={(activeSide === 'A' ? currentPhoto : (currentPhotoBack || currentPhoto)) || ''}
+          activeSide={activeSide}
+          existingMarkers={markers}
+          onApplyMarkers={handleApplyAutoDetectedMarkers}
+          onClose={() => setIsAutoScannerOpen(false)}
         />
       )}
     </div>

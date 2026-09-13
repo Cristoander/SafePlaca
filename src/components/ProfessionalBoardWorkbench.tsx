@@ -44,6 +44,7 @@ interface ProfessionalBoardWorkbenchProps {
   activeSide: 'A' | 'B';
   onToggleSide: (side: 'A' | 'B') => void;
   style: VisualStyle;
+  onOpenAutoScanner?: () => void;
 }
 
 type WorkbenchTool = 'select' | 'pan' | 'jumper';
@@ -63,6 +64,7 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
   activeSide,
   onToggleSide,
   style,
+  onOpenAutoScanner,
 }) => {
   // Pan & Zoom State
   const [zoom, setZoom] = useState(1);
@@ -479,6 +481,18 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
             <Grid className="w-3.5 h-3.5" />
             <span>+ Conector FPC</span>
           </button>
+
+          {/* Botão Auto Separar Peças (Scanner IA) */}
+          {currentPhoto && onOpenAutoScanner && (
+            <button
+              onClick={onOpenAutoScanner}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-md shadow-cyan-950 flex items-center gap-1.5 transition"
+              title="Detectar e separar automaticamente todos os componentes na foto da placa"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+              <span>⚡ Auto Separar Peças</span>
+            </button>
+          )}
         </div>
 
         {/* Zoom & Visão */}
