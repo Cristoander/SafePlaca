@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { BoardProject, BoardComponentMarker, VisualStyle, ComponentKind } from '../types/board';
-import { WatermarkOverlay } from './WatermarkOverlay';
+import type { BoardProject, BoardComponentMarker, VisualStyle, ComponentKind, BoardJumperWire } from '../types/board';
+import { ProfessionalBoardWorkbench } from './ProfessionalBoardWorkbench';
 import { AutoBoardImageStudio } from './AutoBoardImageStudio';
 import { SchematicBuilderModal } from './SchematicBuilderModal';
 import { compressImageFile } from '../utils/compressImage';
@@ -10,15 +10,16 @@ import {
   Plus, 
   Upload, 
   Trash2, 
-  Crosshair,
-  CheckCircle2,
-  RefreshCw,
-  Wand2,
-  Package,
-  Activity,
-  ChevronRight,
-  Check,
-  X
+  Crosshair, 
+  CheckCircle2, 
+  RefreshCw, 
+  Wand2, 
+  Package, 
+  Activity, 
+  ChevronRight, 
+  Check, 
+  X,
+  RotateCw
 } from 'lucide-react';
 
 interface ComponentMarkerEditorProps {
@@ -26,6 +27,7 @@ interface ComponentMarkerEditorProps {
   onUpdateMarkers?: (markers: BoardComponentMarker[]) => void;
   onUpdatePhoto?: (photoUrl: string) => void;
   onUpdateSchematic?: (newSvg: string) => void;
+  onUpdateWires?: (wires: BoardJumperWire[]) => void;
 }
 
 export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
@@ -33,31 +35,35 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
   onUpdateMarkers,
   onUpdatePhoto,
   onUpdateSchematic,
+  onUpdateWires,
 }) => {
   const [style, setStyle] = useState<VisualStyle>('normal');
+  const [activeSide, setActiveSide] = useState<'A' | 'B'>('A');
   const [currentPhoto, setCurrentPhoto] = useState<string | undefined>(board.realPhotoUrl);
+  const [currentPhotoBack, setCurrentPhotoBack] = useState<string | undefined>(board.realPhotoBackUrl);
   const [markers, setMarkers] = useState<BoardComponentMarker[]>(board.markers || []);
+  const [wires, setWires] = useState<BoardJumperWire[]>(board.wires || []);
   const [selectedMarker, setSelectedMarker] = useState<BoardComponentMarker | null>(
     board.markers && board.markers[0] ? board.markers[0] : null
   );
   const [pendingKind, setPendingKind] = useState<ComponentKind | null>(null);
-  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [isStudioOpen, setIsStudioOpen] = useState(false);
   const [isPrebuiltOpen, setIsPrebuiltOpen] = useState(false);
   const [isSchematicBuilderOpen, setIsSchematicBuilderOpen] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sincroniza se a placa mudar
   useEffect(() => {
     setCurrentPhoto(board.realPhotoUrl);
+    setCurrentPhotoBack(board.realPhotoBackUrl);
     setMarkers(board.markers || []);
+    setWires(board.wires || []);
     if (board.markers && board.markers.length > 0) {
       setSelectedMarker(board.markers[0]);
     }
-  }, [board.id, board.realPhotoUrl]);
+  }, [board.id, board.realPhotoUrl, board.realPhotoBackUrl]);
 
   // Suporte a colar imagem com Ctrl+V
   useEffect(() => {
@@ -90,26 +96,14 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
     if (!file) return;
     const compressed = await compressImageFile(file);
     if (compressed) {
-      setCurrentPhoto(compressed);
+      if (activeSide === 'A') {
+        setCurrentPhoto(compressed);
+      } else {
+        setCurrentPhotoBack(compressed);
+      }
       if (onUpdatePhoto) onUpdatePhoto(compressed);
       setUploadSuccess(true);
       setTimeout(() => setUploadSuccess(false), 3000);
-    }
-  };
-
-  // Drag & drop de foto sobre o container
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDraggingFile(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      const compressed = await compressImageFile(file);
-      if (compressed) {
-        setCurrentPhoto(compressed);
-        if (onUpdatePhoto) onUpdatePhoto(compressed);
-        setUploadSuccess(true);
-        setTimeout(() => setUploadSuccess(false), 3000);
-      }
     }
   };
 
@@ -145,8 +139,13 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
       kind,
       reference: refName,
       name: templateData?.name || defaultNames[kind] || 'Componente',
+      side: activeSide,
       xPercent: Math.max(2, Math.min(98, xPercent)),
       yPercent: Math.max(2, Math.min(98, yPercent)),
+      rotation: templateData?.rotation || 0,
+      widthPx: templateData?.widthPx,
+      heightPx: templateData?.heightPx,
+      packageCode: templateData?.packageCode,
       functionDesc: templateData?.functionDesc || 'Posicionado na bancada.',
       diodeScaleMv: templateData?.diodeScaleMv !== undefined ? templateData.diodeScaleMv : (kind === 'bobina' ? 0 : 520),
       voltage: templateData?.voltage || '5.0V',
@@ -162,20 +161,15 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
     if (onUpdateMarkers) onUpdateMarkers(updated);
   };
 
-  // Clique na placa para posicionar componente
-  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!pendingKind) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
-    addMarkerAt(pendingKind, x, y);
-  };
-
   // Inserir peça pré-montada da biblioteca
   const handleInsertPrebuilt = (tpl: PrebuiltComponentTemplate) => {
     addMarkerAt(tpl.kind, 50, 50, {
       reference: `${tpl.referencePrefix}${markers.filter(m => m.kind === tpl.kind).length + 1}`,
       name: tpl.name,
+      rotation: tpl.rotation || 0,
+      widthPx: tpl.widthPx,
+      heightPx: tpl.heightPx,
+      packageCode: tpl.packageCode,
       functionDesc: tpl.functionDesc,
       diodeScaleMv: tpl.diodeScaleMv,
       voltage: tpl.voltage,
@@ -232,19 +226,6 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
         return { bg: 'bg-red-600', border: 'border-red-400', badge: 'bg-red-950 text-red-300' };
       default:
         return { bg: 'bg-cyan-600', border: 'border-cyan-400', badge: 'bg-cyan-950 text-cyan-300' };
-    }
-  };
-
-  const getStyleFilterClass = () => {
-    switch (style) {
-      case 'blueprint':
-        return 'invert hue-rotate-180 brightness-90 saturate-150 contrast-125';
-      case 'xray':
-        return 'invert hue-rotate-90 brightness-110 contrast-200';
-      case 'edges':
-        return 'contrast-200 brightness-125 sepia';
-      default:
-        return '';
     }
   };
 
@@ -443,81 +424,30 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
 
       {/* Grid Principal: Imagem da Placa + Painel de Edição */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Visualizador da Placa com Marcadores */}
-        <div 
-          onDragOver={(e) => { e.preventDefault(); setIsDraggingFile(true); }}
-          onDragLeave={() => setIsDraggingFile(false)}
-          onDrop={handleDrop}
-          className={`lg:col-span-2 relative bg-slate-950 border ${
-            isDraggingFile ? 'border-2 border-cyan-400 bg-cyan-950/20' : 'border-slate-800'
-          } rounded-3xl overflow-hidden shadow-2xl p-3 flex flex-col justify-center items-center min-h-[400px] transition select-none`}
-        >
-          {/* MARCA D'ÁGUA OBRIGATÓRIA DA SAFEPLACA */}
-          <WatermarkOverlay boardCode={board.modelCode} intensity="normal" />
-
-          {/* Container Interativo de Clique Direto */}
-          <div
-            ref={containerRef}
-            onClick={handleContainerClick}
-            className={`relative w-full max-w-[880px] overflow-hidden rounded-2xl z-10 transition duration-300 ${getStyleFilterClass()} ${
-              pendingKind ? 'cursor-crosshair ring-2 ring-amber-500' : 'cursor-default'
-            }`}
-          >
-            {/* Foto Real ou Vetor */}
-            {currentPhoto ? (
-              <img
-                src={currentPhoto}
-                alt={board.title}
-                draggable={false}
-                className="w-full h-auto max-h-[550px] object-contain rounded-xl select-none mx-auto block shadow-2xl pointer-events-auto"
-              />
-            ) : (
-              <div
-                className="w-full h-auto select-none pointer-events-auto"
-                dangerouslySetInnerHTML={{ __html: board.schematicSvg }}
-              />
-            )}
-
-            {/* MARCADORES SOBREPOSTOS */}
-            {markers.map((marker) => {
-              const colors = getKindColor(marker.kind);
-              const isSelected = selectedMarker?.id === marker.id;
-              return (
-                <div
-                  key={marker.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedMarker(marker);
-                  }}
-                  style={{
-                    left: `${marker.xPercent}%`,
-                    top: `${marker.yPercent}%`,
-                  }}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group z-20 transition-transform ${
-                    isSelected ? 'scale-125 z-30' : 'hover:scale-110'
-                  }`}
-                >
-                  <div
-                    className={`w-6 h-6 rounded-full ${colors.bg} border-2 ${
-                      isSelected ? 'border-white ring-4 ring-cyan-400/60 shadow-lg' : colors.border
-                    } flex items-center justify-center text-[9px] font-black text-white shadow-xl`}
-                  >
-                    {marker.reference.slice(0, 2)}
-                  </div>
-                  <span className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/90 border border-slate-700 px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow-lg pointer-events-none">
-                    {marker.reference}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="text-[10px] text-slate-500 mt-2 font-mono flex items-center gap-3">
-            <span>💡 Dica: Clique no botão de peça acima e depois clique na foto da placa.</span>
-            {currentPhoto && (
-              <span className="text-emerald-400 font-bold">● Foto Ativa</span>
-            )}
-          </div>
+        {/* Bancada Profissional de Trabalho da Placa */}
+        <div className="lg:col-span-2">
+          <ProfessionalBoardWorkbench
+            board={board}
+            markers={markers}
+            onUpdateMarkers={(newMarkers) => {
+              setMarkers(newMarkers);
+              if (onUpdateMarkers) onUpdateMarkers(newMarkers);
+            }}
+            wires={wires}
+            onUpdateWires={(newWires) => {
+              setWires(newWires);
+              if (onUpdateWires) onUpdateWires(newWires);
+            }}
+            selectedMarker={selectedMarker}
+            onSelectMarker={setSelectedMarker}
+            pendingKind={pendingKind}
+            onAddMarkerAt={addMarkerAt}
+            onCancelPendingKind={() => setPendingKind(null)}
+            currentPhoto={activeSide === 'A' ? currentPhoto : (currentPhotoBack || currentPhoto)}
+            activeSide={activeSide}
+            onToggleSide={setActiveSide}
+            style={style}
+          />
         </div>
 
         {/* Painel Lateral: Edição do Componente Selecionado */}
@@ -557,6 +487,69 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                     onChange={(e) => handleUpdateSelectedMarker('name', e.target.value)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-white"
                   />
+                </div>
+
+                {/* Face & Encapsulamento */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-slate-400 block mb-1">Face da Placa:</label>
+                    <select
+                      value={selectedMarker.side || 'A'}
+                      onChange={(e) => handleUpdateSelectedMarker('side', e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-cyan-400 font-bold"
+                    >
+                      <option value="A">Face A (Top)</option>
+                      <option value="B">Face B (Bottom)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-slate-400 block mb-1">Encapsulamento:</label>
+                    <select
+                      value={selectedMarker.packageCode || ''}
+                      onChange={(e) => handleUpdateSelectedMarker('packageCode', e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-slate-200"
+                    >
+                      <option value="">Padrão SMD</option>
+                      <option value="0201">SMD 0201 (Ultra-micro)</option>
+                      <option value="0402">SMD 0402 (Micro)</option>
+                      <option value="0603">SMD 0603</option>
+                      <option value="0805">SMD 0805</option>
+                      <option value="BGA">BGA (Solda em esferas)</option>
+                      <option value="QFN">QFN (Pinos laterais)</option>
+                      <option value="FPC">Conector FPC</option>
+                      <option value="TP">Test Point (Ponto de Teste)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Rotação rápida */}
+                <div>
+                  <label className="text-slate-400 block mb-1">Rotação do Footprint:</label>
+                  <div className="flex items-center gap-1.5">
+                    {[0, 90, 180, 270].map((deg) => (
+                      <button
+                        key={deg}
+                        type="button"
+                        onClick={() => handleUpdateSelectedMarker('rotation', deg)}
+                        className={`flex-1 py-1 rounded-lg text-xs font-bold border transition ${
+                          (selectedMarker.rotation || 0) === deg
+                            ? 'bg-cyan-600 text-white border-cyan-400'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        {deg}°
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateSelectedMarker('rotation', ((selectedMarker.rotation || 0) + 90) % 360)}
+                      className="p-1 rounded-lg bg-slate-900 text-cyan-400 border border-slate-800 hover:bg-slate-850"
+                      title="Girar +90°"
+                    >
+                      <RotateCw className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Ajuste Fino de Posição X / Y com D-Pad */}
@@ -644,6 +637,17 @@ export const ComponentMarkerEditor: React.FC<ComponentMarkerEditorProps> = ({
                       className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-cyan-300 font-mono"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 block mb-1">Malha Associada (Net):</label>
+                  <input
+                    type="text"
+                    value={selectedMarker.netName || ''}
+                    onChange={(e) => handleUpdateSelectedMarker('netName', e.target.value)}
+                    placeholder="Ex: VBUS_5V, VBAT_4V2, VREG_L18"
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-2 text-cyan-300 font-mono text-xs"
+                  />
                 </div>
 
                 <div>

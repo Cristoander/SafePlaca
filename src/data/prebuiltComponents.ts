@@ -10,6 +10,10 @@ export interface PrebuiltComponentTemplate {
   diodeScaleMv: number;
   voltage: string;
   netName?: string;
+  rotation?: number;
+  widthPx?: number;
+  heightPx?: number;
+  packageCode?: string;
   faultSymptom: string;
   repairTip: string;
   badge: string;

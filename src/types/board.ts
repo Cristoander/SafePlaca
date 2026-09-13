@@ -55,6 +55,10 @@ export interface BoardComponentMarker {
   diodeScaleMv?: number;
   voltage?: string;
   netName?: string; // Malha associada (ex: VBUS_5V, VBAT)
+  rotation?: number; // 0, 45, 90, 180, 270 graus
+  widthPx?: number; // Largura do footprint (px)
+  heightPx?: number; // Altura do footprint (px)
+  packageCode?: string; // Encapsulamento (ex: '0201', '0402', 'BGA', 'QFN')
   faultSymptom?: string;
   repairTip?: string;
 }
@@ -77,6 +81,17 @@ export interface DeviceFolder {
   name: string;
   brand: string;
   icon?: string;
+}
+
+export interface BoardJumperWire {
+  id: string;
+  title: string;
+  netName: string;
+  wireColorHex: string;
+  wireDiameter?: string; // Ex: '0.01mm', '0.02mm'
+  points: { xPercent: number; yPercent: number }[];
+  uvMaskPoints?: { xPercent: number; yPercent: number }[];
+  side?: 'A' | 'B';
 }
 
 export interface BoardProject {
@@ -110,6 +125,7 @@ export interface BoardProject {
   realPhotoBackUrl?: string; // Foto real de bancada (Lado B / Verso)
   visualStyleBack?: VisualStyle;
   markers?: BoardComponentMarker[]; // Bobinas, conectores, CIs mapeados
+  wires?: BoardJumperWire[]; // Fios de jumper interativos mapeados
   commonFaults?: CommonFault[]; // Defeitos comuns e soluções
   pinouts: PinoutItem[];
   testPoints: TestPoint[];

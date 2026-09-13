@@ -245,6 +245,7 @@ export const BoardDetailModal: React.FC<BoardDetailModalProps> = ({
                 onUpdateMarkers={(markers) => onUpdateBoard && onUpdateBoard({ ...board, markers })}
                 onUpdatePhoto={(photoUrl) => onUpdateBoard && onUpdateBoard({ ...board, realPhotoUrl: photoUrl })}
                 onUpdateSchematic={(newSvg) => onUpdateBoard && onUpdateBoard({ ...board, schematicSvg: newSvg })}
+                onUpdateWires={(wires) => onUpdateBoard && onUpdateBoard({ ...board, wires })}
               />
             )}
 
