@@ -129,7 +129,22 @@ export const ComponentFootprintView: React.FC<ComponentFootprintViewProps> = ({
         );
 
       case 'conector':
-        // Conector FPC: Pente de pinos dourados com carcaça plástica
+        if (marker.packageCode === 'PIN_FPC') {
+          // Pad individual de pino FPC de conector (Borneo/ZXW style)
+          return (
+            <div 
+              className="w-full h-full relative rounded-sm bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 border border-amber-200 shadow-md flex items-center justify-center overflow-hidden"
+              style={{ minWidth: 16, minHeight: 22 }}
+              title={`Pino ${marker.reference} - ${marker.name}`}
+            >
+              <span className="text-[9px] font-black text-slate-950 font-mono tracking-tighter">
+                {marker.reference.replace(/[^0-9]/g, '') || marker.reference.slice(0, 3)}
+              </span>
+            </div>
+          );
+        }
+
+        // Conector FPC completo: Pente de pinos dourados com carcaça plástica
         return (
           <div 
             className="w-full h-full relative rounded bg-slate-900 border-2 border-amber-600/80 shadow-2xl flex items-center justify-between px-1"

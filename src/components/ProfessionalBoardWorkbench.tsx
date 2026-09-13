@@ -3,6 +3,7 @@ import type { BoardProject, BoardComponentMarker, VisualStyle, ComponentKind, Bo
 import { ComponentFootprintView } from './ComponentFootprintView';
 import { WireTracerOverlay } from './WireTracerOverlay';
 import { WatermarkOverlay } from './WatermarkOverlay';
+import { FpcPinoutGeneratorModal } from './FpcPinoutGeneratorModal';
 import { 
   ZoomIn, 
   ZoomOut, 
@@ -23,7 +24,9 @@ import {
   Sparkles,
   Tag,
   Zap,
-  SplitSquareVertical
+  SplitSquareVertical,
+  Link2,
+  Grid
 } from 'lucide-react';
 
 interface ProfessionalBoardWorkbenchProps {
@@ -88,6 +91,10 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
   const [wireNetName, setWireNetName] = useState('JUMPER_SOLUCAO');
   const [wireUvMasks, setWireUvMasks] = useState<{ xPercent: number; yPercent: number }[]>([]);
   const [selectedWireId, setSelectedWireId] = useState<string | null>(null);
+
+  // Net Linking & FPC Generator State
+  const [linkingSourceMarker, setLinkingSourceMarker] = useState<BoardComponentMarker | null>(null);
+  const [isFpcModalOpen, setIsFpcModalOpen] = useState(false);
 
   // Undo / Redo History
   const [history, setHistory] = useState<{ markers: BoardComponentMarker[]; wires: BoardJumperWire[] }[]>([
@@ -228,10 +235,41 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
     }
   };
 
-  // Iniciar Arraste de Marcador
+  // Iniciar Arraste de Marcador ou Ligar Malha a Outro Componente
   const handleMarkerMouseDown = (e: React.MouseEvent, marker: BoardComponentMarker) => {
     if (activeTool !== 'select') return;
     e.stopPropagation();
+
+    // Se estiver no modo de Ligar Malha a outro componente
+    if (linkingSourceMarker) {
+      if (linkingSourceMarker.id === marker.id) {
+        setLinkingSourceMarker(null);
+        return;
+      }
+      const commonNet = linkingSourceMarker.netName || marker.netName || `${linkingSourceMarker.reference}_LINE`;
+      const commonVoltage = linkingSourceMarker.voltage || marker.voltage;
+      const commonDiode = linkingSourceMarker.diodeScaleMv !== undefined ? linkingSourceMarker.diodeScaleMv : marker.diodeScaleMv;
+
+      const updated = markers.map((m) => {
+        if (m.id === linkingSourceMarker.id || m.id === marker.id) {
+          return {
+            ...m,
+            netName: commonNet,
+            voltage: m.voltage || commonVoltage,
+            diodeScaleMv: m.diodeScaleMv !== undefined ? m.diodeScaleMv : commonDiode,
+          };
+        }
+        return m;
+      });
+
+      onUpdateMarkers(updated);
+      pushHistory(updated, wires);
+      setLinkingSourceMarker(null);
+      const updatedTarget = updated.find((m) => m.id === marker.id) || marker;
+      onSelectMarker(updatedTarget);
+      return;
+    }
+
     onSelectMarker(marker);
     setDraggingMarkerId(marker.id);
     setDragStartMouse({ x: e.clientX, y: e.clientY });
@@ -336,6 +374,13 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
     return w.side === 'B';
   });
 
+  // Malha do componente selecionado (para iluminar peças conectadas e desenhar trilhas laser)
+  const netPeers = selectedMarker?.netName
+    ? visibleMarkers.filter(
+        (m) => m.netName && m.netName.toUpperCase() === selectedMarker.netName?.toUpperCase()
+      )
+    : [];
+
   // Minimap Navigation: clicar para centralizar
   const handleMinimapClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -398,29 +443,41 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
           </button>
         </div>
 
-        {/* Alternador de Face (Lado A / Lado B) */}
-        <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl">
+        {/* Alternador de Face (Lado A / Lado B) & Gerador FPC */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1 bg-slate-900/90 border border-slate-800 p-1 rounded-xl">
+            <button
+              onClick={() => onToggleSide('A')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeSide === 'A'
+                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <SplitSquareVertical className="w-3.5 h-3.5" />
+              <span>Face A (Top)</span>
+            </button>
+            <button
+              onClick={() => onToggleSide('B')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                activeSide === 'B'
+                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-950'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <SplitSquareVertical className="w-3.5 h-3.5" />
+              <span>Face B (Bottom)</span>
+            </button>
+          </div>
+
+          {/* Botão Gerador de Conector FPC (Pinos em Grade) */}
           <button
-            onClick={() => onToggleSide('A')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              activeSide === 'A'
-                ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-950'
-                : 'text-slate-400 hover:text-white'
-            }`}
+            onClick={() => setIsFpcModalOpen(true)}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-black font-extrabold text-xs shadow-md shadow-amber-950 flex items-center gap-1.5 transition"
+            title="Gerar grade de pinos de conector FPC com valores de diodo e voltagem (ex: Subplaca Galaxy A15)"
           >
-            <SplitSquareVertical className="w-3.5 h-3.5" />
-            <span>Face A (Top)</span>
-          </button>
-          <button
-            onClick={() => onToggleSide('B')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-              activeSide === 'B'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-950'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <SplitSquareVertical className="w-3.5 h-3.5" />
-            <span>Face B (Bottom)</span>
+            <Grid className="w-3.5 h-3.5" />
+            <span>+ Conector FPC</span>
           </button>
         </div>
 
@@ -652,6 +709,25 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
         </div>
       )}
 
+      {/* BARRA DE LIGAÇÃO DE MALHA ENTRE COMPONENTES */}
+      {linkingSourceMarker && (
+        <div className="bg-cyan-950/95 border-2 border-cyan-400 rounded-2xl p-3 shadow-2xl flex flex-wrap items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center gap-2 text-xs text-cyan-300">
+            <Link2 className="w-4 h-4 text-cyan-400 animate-spin" />
+            <span className="font-extrabold text-white">Modo Ligar Malha Ativo:</span>
+            <span>
+              Clique no outro componente ou pino para ligar com <strong className="text-cyan-300 underline">{linkingSourceMarker.reference}</strong> (Malha: <strong className="text-amber-300">{linkingSourceMarker.netName || 'Nova Linha'}</strong>)
+            </span>
+          </div>
+          <button
+            onClick={() => setLinkingSourceMarker(null)}
+            className="px-3 py-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700"
+          >
+            Cancelar
+          </button>
+        </div>
+      )}
+
       {/* ÁREA PRINCIPAL DO CANVAS PROFISSIONAL COM PAN E ZOOM */}
       <div
         ref={containerRef}
@@ -719,10 +795,56 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
               />
             )}
 
+            {/* TRILHAS LASER VIRTUAIS ENTRE COMPONENTES DA MESMA MALHA (RATSNEST) */}
+            {netPeers.length > 1 && selectedMarker && (
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
+                {netPeers.map((peer) => {
+                  if (peer.id === selectedMarker.id) return null;
+                  return (
+                    <g key={`net-line-${peer.id}`}>
+                      {/* Linha externa de brilho neon */}
+                      <line
+                        x1={`${selectedMarker.xPercent}%`}
+                        y1={`${selectedMarker.yPercent}%`}
+                        x2={`${peer.xPercent}%`}
+                        y2={`${peer.yPercent}%`}
+                        stroke="#06b6d4"
+                        strokeWidth="3.5"
+                        strokeDasharray="6 4"
+                        strokeLinecap="round"
+                        className="animate-pulse drop-shadow-[0_0_10px_rgba(6,182,212,0.95)] opacity-90"
+                      />
+                      {/* Linha interna branca de centro */}
+                      <line
+                        x1={`${selectedMarker.xPercent}%`}
+                        y1={`${selectedMarker.yPercent}%`}
+                        x2={`${peer.xPercent}%`}
+                        y2={`${peer.yPercent}%`}
+                        stroke="#ffffff"
+                        strokeWidth="1.5"
+                        strokeDasharray="6 4"
+                        strokeLinecap="round"
+                        className="opacity-70"
+                      />
+                    </g>
+                  );
+                })}
+              </svg>
+            )}
+
             {/* MARCADORES / COMPONENTES ELETRÔNICOS REALISTAS */}
             {visibleMarkers.map((marker) => {
               const isSelected = selectedMarker?.id === marker.id;
               const isDragging = draggingMarkerId === marker.id;
+              const isInSameNet = Boolean(
+                selectedMarker?.netName &&
+                marker.netName &&
+                marker.netName.toUpperCase() === selectedMarker.netName.toUpperCase() &&
+                marker.id !== selectedMarker.id
+              );
+              const isLinkingTargetCandidate = Boolean(
+                linkingSourceMarker && linkingSourceMarker.id !== marker.id
+              );
 
               return (
                 <div
@@ -732,8 +854,10 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
                     left: `${marker.xPercent}%`,
                     top: `${marker.yPercent}%`,
                   }}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-30 transition-shadow ${
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-30 transition-all ${
                     isDragging ? 'opacity-80 scale-110 z-40' : ''
+                  } ${isInSameNet ? 'ring-4 ring-cyan-400 ring-offset-2 ring-offset-slate-950 animate-pulse z-35 scale-110 shadow-lg shadow-cyan-500/50' : ''} ${
+                    isLinkingTargetCandidate ? 'ring-4 ring-amber-400 animate-bounce cursor-pointer' : ''
                   }`}
                 >
                   {/* Renderizador de Footprint Realista */}
@@ -853,13 +977,29 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
               </button>
             </div>
 
-            <div className="space-y-1.5 text-xs">
+            <div className="space-y-2 text-xs">
               <div className="text-slate-300 font-medium truncate">
                 {selectedMarker.name}
               </div>
 
+              {/* Malha associada */}
+              <div className="bg-slate-900 border border-slate-800 rounded-lg p-1.5 flex items-center justify-between">
+                <span className="text-[10px] text-slate-400">Malha:</span>
+                <span className="text-cyan-300 font-bold font-mono text-[11px] truncate max-w-[160px]">
+                  {selectedMarker.netName || 'Sem Malha'}
+                </span>
+              </div>
+
+              {/* Quantidade de componentes interligados */}
+              {netPeers.length > 1 && (
+                <div className="text-[10px] text-emerald-300 font-bold flex items-center gap-1 bg-emerald-950/60 p-1.5 rounded-lg border border-emerald-700/60 animate-in fade-in">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                  <span>{netPeers.length} pontos ligados nesta malha!</span>
+                </div>
+              )}
+
               {/* Valores rápidos */}
-              <div className="grid grid-cols-2 gap-1.5 pt-1">
+              <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                 <div className="bg-slate-900 border border-slate-800 rounded-lg p-1.5 text-center">
                   <span className="text-[10px] text-slate-400 block">Diodo (mV)</span>
                   <span className="text-rose-400 font-bold font-mono">
@@ -875,14 +1015,27 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
               </div>
 
               {/* Rotação e Ações Rápidas */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 gap-1">
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 gap-1.5">
+                <button
+                  onClick={() => setLinkingSourceMarker(linkingSourceMarker?.id === selectedMarker.id ? null : selectedMarker)}
+                  className={`flex-1 py-1 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1 transition ${
+                    linkingSourceMarker?.id === selectedMarker.id
+                      ? 'bg-amber-500 text-black shadow-lg animate-pulse'
+                      : 'bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-700/60'
+                  }`}
+                  title="Ligar e conectar este componente a outro (compartilhar mesma malha elétrica)"
+                >
+                  <Link2 className="w-3 h-3" />
+                  <span>{linkingSourceMarker?.id === selectedMarker.id ? 'Cancel. Ligação' : 'Ligar Malha'}</span>
+                </button>
+
                 <button
                   onClick={() => handleRotateSelected('cw')}
-                  className="flex-1 py-1 px-2 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 text-[11px] font-bold flex items-center justify-center gap-1 transition"
+                  className="py-1 px-2 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 text-[11px] font-bold flex items-center justify-center gap-1 transition"
                   title="Girar Footprint +90 Graus"
                 >
                   <RotateCw className="w-3 h-3 text-cyan-400" />
-                  <span>Girar 90°</span>
+                  <span>90°</span>
                 </button>
 
                 <button
@@ -896,7 +1049,6 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
                   title="Excluir este componente"
                 >
                   <Trash2 className="w-3 h-3" />
-                  <span>Excluir</span>
                 </button>
               </div>
             </div>
@@ -939,6 +1091,21 @@ export const ProfessionalBoardWorkbench: React.FC<ProfessionalBoardWorkbenchProp
           </div>
         )}
       </div>
+
+      {/* MODAL GERADOR DE CONECTOR FPC VIRTUAL */}
+      {isFpcModalOpen && (
+        <FpcPinoutGeneratorModal
+          isOpen={isFpcModalOpen}
+          onClose={() => setIsFpcModalOpen(false)}
+          activeSide={activeSide}
+          onGeneratePins={(newPins) => {
+            const updated = [...markers, ...newPins];
+            onUpdateMarkers(updated);
+            pushHistory(updated, wires);
+            if (newPins[0]) onSelectMarker(newPins[0]);
+          }}
+        />
+      )}
     </div>
   );
 };
