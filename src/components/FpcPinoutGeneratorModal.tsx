@@ -68,47 +68,214 @@ export const FpcPinoutGeneratorModal: React.FC<FpcPinoutGeneratorModalProps> = (
     });
   };
 
-  // Carregar Preset Pronto: Subplaca Galaxy A15 / Linha A (Carga, Áudio, USB, Mic)
-  const applyA15Preset = () => {
-    setTotalPins(34);
-    setConnectorRef('FPC_SUB_A15');
-    const a15Pins: PinDraft[] = [
-      { pinNumber: 1, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Entrada USB 5V VBUS Alimentação' },
-      { pinNumber: 2, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Entrada USB 5V VBUS Alimentação' },
-      { pinNumber: 3, netName: 'USB_CC1', diodeScaleMv: 580, voltage: '1.8V', description: 'Linha de detecção cabo Type-C CC1' },
-      { pinNumber: 4, netName: 'USB_CC2', diodeScaleMv: 580, voltage: '1.8V', description: 'Linha de detecção cabo Type-C CC2' },
-      { pinNumber: 5, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 6, netName: 'USB_DP', diodeScaleMv: 650, voltage: '3.3V', description: 'Dados USB D+ (Positivo)' },
-      { pinNumber: 7, netName: 'USB_DM', diodeScaleMv: 650, voltage: '3.3V', description: 'Dados USB D- (Negativo)' },
-      { pinNumber: 8, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 9, netName: 'MIC_MAIN_POS', diodeScaleMv: 610, voltage: '1.8V', description: 'Microfone principal de chamada Mic+' },
-      { pinNumber: 10, netName: 'MIC_BIAS_2V', diodeScaleMv: 590, voltage: '2.0V', description: 'Alimentação Bias do microfone' },
-      { pinNumber: 11, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 12, netName: 'SPK_OUT_P', diodeScaleMv: 490, voltage: '4.2V', description: 'Campainha / Viva-voz Speaker+' },
-      { pinNumber: 13, netName: 'SPK_OUT_N', diodeScaleMv: 490, voltage: '4.2V', description: 'Campainha / Viva-voz Speaker-' },
-      { pinNumber: 14, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 15, netName: 'TH_SUB_DET', diodeScaleMv: 590, voltage: '1.2V', description: 'Sensor térmico Termistor Subplaca' },
-      { pinNumber: 16, netName: 'ANT_RX_DET', diodeScaleMv: 720, voltage: '0V', description: 'Linha coaxial RF Antena' },
-      { pinNumber: 17, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 18, netName: 'VBAT_SENSE', diodeScaleMv: 460, voltage: '4.2V', description: 'Monitoramento da bateria' },
-      { pinNumber: 19, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 20, netName: 'OVP_OUT_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Saída do CI OVP para a placa principal' },
-      { pinNumber: 21, netName: 'OVP_OUT_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Saída do CI OVP para a placa principal' },
-      { pinNumber: 22, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 23, netName: 'EAR_JACK_L', diodeScaleMv: 640, voltage: '1.8V', description: 'Canal esquerdo fone de ouvido' },
-      { pinNumber: 24, netName: 'EAR_JACK_R', diodeScaleMv: 640, voltage: '1.8V', description: 'Canal direito fone de ouvido' },
-      { pinNumber: 25, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 26, netName: 'MOTOR_VIB_P', diodeScaleMv: 510, voltage: '3.3V', description: 'Motor Vibracall+' },
-      { pinNumber: 27, netName: 'MOTOR_VIB_N', diodeScaleMv: 510, voltage: '0V', description: 'Motor Vibracall-' },
-      { pinNumber: 28, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 29, netName: 'ID_BOARD_SUB', diodeScaleMv: 680, voltage: '1.8V', description: 'Detecção de versão da subplaca' },
-      { pinNumber: 30, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
-      { pinNumber: 31, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Pino reforçado VBUS Carga rápida' },
-      { pinNumber: 32, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Pino reforçado VBUS Carga rápida' },
-      { pinNumber: 33, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Carcaça / Terra blindado' },
-      { pinNumber: 34, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Carcaça / Terra blindado' },
-    ];
-    setPinsList(a15Pins);
+  // Presets Prontos Universais para qualquer aparelho
+  const applyPreset = (presetType: 'a15' | 'battery' | 'typec' | 'display' | 'iphone' | 'motog') => {
+    switch (presetType) {
+      case 'battery':
+        setTotalPins(6);
+        setConnectorRef('J_BATT');
+        setPinsList([
+          { pinNumber: 1, netName: 'VBAT_POS', diodeScaleMv: 460, voltage: '4.2V', description: 'Positivo Bateria Principal +' },
+          { pinNumber: 2, netName: 'VBAT_POS', diodeScaleMv: 460, voltage: '4.2V', description: 'Positivo Bateria Principal +' },
+          { pinNumber: 3, netName: 'BATT_ID', diodeScaleMv: 620, voltage: '1.8V', description: 'Linha de identificação/comunicação bateria' },
+          { pinNumber: 4, netName: 'BATT_THERM_NTC', diodeScaleMv: 590, voltage: '1.2V', description: 'Termistor NTC de temperatura da bateria' },
+          { pinNumber: 5, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Negativo / Terra comum (GND)' },
+          { pinNumber: 6, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Negativo / Terra comum (GND)' },
+        ]);
+        break;
+
+      case 'typec':
+        setTotalPins(24);
+        setConnectorRef('J_TYPE_C');
+        setPinsList([
+          { pinNumber: 1, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra A1/B12' },
+          { pinNumber: 2, netName: 'SSTXp1', diodeScaleMv: 680, voltage: '0V', description: 'Transmissão alta velocidade TX+' },
+          { pinNumber: 3, netName: 'SSTXn1', diodeScaleMv: 680, voltage: '0V', description: 'Transmissão alta velocidade TX-' },
+          { pinNumber: 4, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V ~ 20V', description: 'VBUS Alimentação Carregador' },
+          { pinNumber: 5, netName: 'CC1', diodeScaleMv: 580, voltage: '1.8V', description: 'Detecção de orientação cabo CC1' },
+          { pinNumber: 6, netName: 'USB_DP1', diodeScaleMv: 650, voltage: '3.3V', description: 'Dados D+ Positivo' },
+          { pinNumber: 7, netName: 'USB_DN1', diodeScaleMv: 650, voltage: '3.3V', description: 'Dados D- Negativo' },
+          { pinNumber: 8, netName: 'SBU1', diodeScaleMv: 720, voltage: '0V', description: 'Banda lateral áudio/controle SBU1' },
+          { pinNumber: 9, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V ~ 20V', description: 'VBUS Alimentação Carregador' },
+          { pinNumber: 10, netName: 'SSRXn2', diodeScaleMv: 680, voltage: '0V', description: 'Recepção alta velocidade RX-' },
+          { pinNumber: 11, netName: 'SSRXp2', diodeScaleMv: 680, voltage: '0V', description: 'Recepção alta velocidade RX+' },
+          { pinNumber: 12, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra A12/B1' },
+          { pinNumber: 13, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra B1' },
+          { pinNumber: 14, netName: 'SSTXp2', diodeScaleMv: 680, voltage: '0V', description: 'Transmissão alta velocidade TX2+' },
+          { pinNumber: 15, netName: 'SSTXn2', diodeScaleMv: 680, voltage: '0V', description: 'Transmissão alta velocidade TX2-' },
+          { pinNumber: 16, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V ~ 20V', description: 'VBUS Alimentação Carregador' },
+          { pinNumber: 17, netName: 'CC2', diodeScaleMv: 580, voltage: '1.8V', description: 'Detecção de orientação cabo CC2' },
+          { pinNumber: 18, netName: 'USB_DP2', diodeScaleMv: 650, voltage: '3.3V', description: 'Dados D+ Positivo' },
+          { pinNumber: 19, netName: 'USB_DN2', diodeScaleMv: 650, voltage: '3.3V', description: 'Dados D- Negativo' },
+          { pinNumber: 20, netName: 'SBU2', diodeScaleMv: 720, voltage: '0V', description: 'Banda lateral áudio/controle SBU2' },
+          { pinNumber: 21, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V ~ 20V', description: 'VBUS Alimentação Carregador' },
+          { pinNumber: 22, netName: 'SSRXn1', diodeScaleMv: 680, voltage: '0V', description: 'Recepção alta velocidade RX1-' },
+          { pinNumber: 23, netName: 'SSRXp1', diodeScaleMv: 680, voltage: '0V', description: 'Recepção alta velocidade RX1+' },
+          { pinNumber: 24, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra B12' },
+        ]);
+        break;
+
+      case 'display':
+        setTotalPins(40);
+        setConnectorRef('FPC_DISP');
+        setPinsList([
+          { pinNumber: 1, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra de blindagem' },
+          { pinNumber: 2, netName: 'MIPI_CLK_P', diodeScaleMv: 490, voltage: '1.2V', description: 'Clock diferencial vídeo MIPI+' },
+          { pinNumber: 3, netName: 'MIPI_CLK_N', diodeScaleMv: 490, voltage: '1.2V', description: 'Clock diferencial vídeo MIPI-' },
+          { pinNumber: 4, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 5, netName: 'MIPI_D0_P', diodeScaleMv: 490, voltage: '1.2V', description: 'Dados vídeo Lane 0+' },
+          { pinNumber: 6, netName: 'MIPI_D0_N', diodeScaleMv: 490, voltage: '1.2V', description: 'Dados vídeo Lane 0-' },
+          { pinNumber: 7, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 8, netName: 'MIPI_D1_P', diodeScaleMv: 490, voltage: '1.2V', description: 'Dados vídeo Lane 1+' },
+          { pinNumber: 9, netName: 'MIPI_D1_N', diodeScaleMv: 490, voltage: '1.2V', description: 'Dados vídeo Lane 1-' },
+          { pinNumber: 10, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 11, netName: 'MIPI_D2_P', diodeScaleMv: 490, voltage: '1.2V', description: 'Dados vídeo Lane 2+' },
+          { pinNumber: 12, netName: 'MIPI_D2_N', diodeScaleMv: 490, voltage: '1.2V', description: 'Dados vídeo Lane 2-' },
+          { pinNumber: 13, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 14, netName: 'MIPI_D3_P', diodeScaleMv: 490, voltage: '1.2V', description: 'Dados vídeo Lane 3+' },
+          { pinNumber: 15, netName: 'MIPI_D3_N', diodeScaleMv: 490, voltage: '1.2V', description: 'Dados vídeo Lane 3-' },
+          { pinNumber: 16, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 17, netName: 'DISP_RESET_N', diodeScaleMv: 640, voltage: '1.8V', description: 'Reset do controlador da tela' },
+          { pinNumber: 18, netName: 'DISP_TE_VSYNC', diodeScaleMv: 620, voltage: '1.8V', description: 'Sincronismo vertical Tearing Effect' },
+          { pinNumber: 19, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 20, netName: 'VREG_1V8_IO', diodeScaleMv: 530, voltage: '1.8V', description: 'Alimentação lógica digital 1.8V' },
+          { pinNumber: 21, netName: 'VREG_3V3_AVDD', diodeScaleMv: 510, voltage: '3.3V', description: 'Alimentação analógica da tela' },
+          { pinNumber: 22, netName: 'VREG_ELVDD_4V6', diodeScaleMv: 480, voltage: '4.6V', description: 'Tensão positiva painel OLED (+)' },
+          { pinNumber: 23, netName: 'VREG_ELVSS_NEG', diodeScaleMv: 480, voltage: '-3.0V', description: 'Tensão negativa painel OLED (-)' },
+          { pinNumber: 24, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 25, netName: 'TOUCH_SDA', diodeScaleMv: 610, voltage: '1.8V', description: 'Comunicação I2C Touch Dados' },
+          { pinNumber: 26, netName: 'TOUCH_SCL', diodeScaleMv: 610, voltage: '1.8V', description: 'Comunicação I2C Touch Clock' },
+          { pinNumber: 27, netName: 'TOUCH_INT_N', diodeScaleMv: 630, voltage: '1.8V', description: 'Interrupção de toque Touch' },
+          { pinNumber: 28, netName: 'TOUCH_RESET_N', diodeScaleMv: 640, voltage: '1.8V', description: 'Reset do Touch Screen' },
+          { pinNumber: 29, netName: 'VREG_TOUCH_3V3', diodeScaleMv: 520, voltage: '3.3V', description: 'Alimentação do CI de Toque' },
+          { pinNumber: 30, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 31, netName: 'LED_ANODE_POS', diodeScaleMv: 580, voltage: '18V ~ 24V', description: 'Backlight LED+ (positivo iluminação)' },
+          { pinNumber: 32, netName: 'LED_ANODE_POS', diodeScaleMv: 580, voltage: '18V ~ 24V', description: 'Backlight LED+ (positivo iluminação)' },
+          { pinNumber: 33, netName: 'LED_CATHODE_1', diodeScaleMv: 620, voltage: '0V ~ 3V', description: 'Retorno Backlight LED K1' },
+          { pinNumber: 34, netName: 'LED_CATHODE_2', diodeScaleMv: 620, voltage: '0V ~ 3V', description: 'Retorno Backlight LED K2' },
+          { pinNumber: 35, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 36, netName: 'DISP_ID0', diodeScaleMv: 680, voltage: '1.8V', description: 'Identificação fabricante LCD' },
+          { pinNumber: 37, netName: 'DISP_ID1', diodeScaleMv: 680, voltage: '1.8V', description: 'Identificação fabricante LCD' },
+          { pinNumber: 38, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 39, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Carcaça blindagem' },
+          { pinNumber: 40, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Carcaça blindagem' },
+        ]);
+        break;
+
+      case 'iphone':
+        setTotalPins(28);
+        setConnectorRef('J_IPHONE_DOCK');
+        setPinsList([
+          { pinNumber: 1, netName: 'PP_VBUS_E75', diodeScaleMv: 510, voltage: '5.0V', description: 'Alimentação entrada de carga' },
+          { pinNumber: 2, netName: 'PP_VBUS_E75', diodeScaleMv: 510, voltage: '5.0V', description: 'Alimentação entrada de carga' },
+          { pinNumber: 3, netName: 'TRISTAR_CC1', diodeScaleMv: 590, voltage: '1.8V', description: 'Linha Tristar / Hydra de detecção' },
+          { pinNumber: 4, netName: 'TRISTAR_CC2', diodeScaleMv: 590, voltage: '1.8V', description: 'Linha Tristar / Hydra de detecção' },
+          { pinNumber: 5, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 6, netName: 'USB_HS_DP', diodeScaleMv: 670, voltage: '3.3V', description: 'USB High Speed Data+' },
+          { pinNumber: 7, netName: 'USB_HS_DN', diodeScaleMv: 670, voltage: '3.3V', description: 'USB High Speed Data-' },
+          { pinNumber: 8, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 9, netName: 'MIC1_TO_CODEC_P', diodeScaleMv: 630, voltage: '1.8V', description: 'Microfone inferior canal +' },
+          { pinNumber: 10, netName: 'MIC1_TO_CODEC_N', diodeScaleMv: 630, voltage: '1.8V', description: 'Microfone inferior canal -' },
+          { pinNumber: 11, netName: 'PP_MIC_BIAS', diodeScaleMv: 580, voltage: '2.4V', description: 'Tensão Bias microfone' },
+          { pinNumber: 12, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 13, netName: 'SPKR_AMP_OUT_P', diodeScaleMv: 490, voltage: '4.2V', description: 'Alto-falante inferior +' },
+          { pinNumber: 14, netName: 'SPKR_AMP_OUT_N', diodeScaleMv: 490, voltage: '4.2V', description: 'Alto-falante inferior -' },
+          { pinNumber: 15, netName: 'TAPTIC_DRV_P', diodeScaleMv: 520, voltage: '3.7V', description: 'Motor Taptic Engine +' },
+          { pinNumber: 16, netName: 'TAPTIC_DRV_N', diodeScaleMv: 520, voltage: '0V', description: 'Motor Taptic Engine -' },
+          { pinNumber: 17, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 18, netName: 'PP_BATT_VCC', diodeScaleMv: 440, voltage: '4.2V', description: 'Linha positiva da bateria' },
+          { pinNumber: 19, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 20, netName: 'ANT_FEED_CELL', diodeScaleMv: 740, voltage: '0V', description: 'Antena celular inferior' },
+          { pinNumber: 21, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 22, netName: 'BARO_I2C_SDA', diodeScaleMv: 610, voltage: '1.8V', description: 'Sensor barômetro SDA' },
+          { pinNumber: 23, netName: 'BARO_I2C_SCL', diodeScaleMv: 610, voltage: '1.8V', description: 'Sensor barômetro SCL' },
+          { pinNumber: 24, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 25, netName: 'PP1V8_S2', diodeScaleMv: 540, voltage: '1.8V', description: 'Alimentação Always-On' },
+          { pinNumber: 26, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 27, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Carcaça blindagem' },
+          { pinNumber: 28, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Carcaça blindagem' },
+        ]);
+        break;
+
+      case 'motog':
+        setTotalPins(30);
+        setConnectorRef('FPC_MOTO_SUB');
+        setPinsList([
+          { pinNumber: 1, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'VBUS Entrada Carga' },
+          { pinNumber: 2, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'VBUS Entrada Carga' },
+          { pinNumber: 3, netName: 'CC1_DET', diodeScaleMv: 590, voltage: '1.8V', description: 'Type-C CC1' },
+          { pinNumber: 4, netName: 'CC2_DET', diodeScaleMv: 590, voltage: '1.8V', description: 'Type-C CC2' },
+          { pinNumber: 5, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 6, netName: 'USB_HS_DP', diodeScaleMv: 640, voltage: '3.3V', description: 'Dados D+' },
+          { pinNumber: 7, netName: 'USB_HS_DM', diodeScaleMv: 640, voltage: '3.3V', description: 'Dados D-' },
+          { pinNumber: 8, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 9, netName: 'MIC_IN_P', diodeScaleMv: 620, voltage: '1.8V', description: 'Microfone de ligação' },
+          { pinNumber: 10, netName: 'MIC_BIAS', diodeScaleMv: 590, voltage: '2.0V', description: 'Tensão do microfone' },
+          { pinNumber: 11, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 12, netName: 'SPK_OUT_P', diodeScaleMv: 480, voltage: '4.2V', description: 'Campainha +' },
+          { pinNumber: 13, netName: 'SPK_OUT_N', diodeScaleMv: 480, voltage: '4.2V', description: 'Campainha -' },
+          { pinNumber: 14, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 15, netName: 'SUB_THERM_DET', diodeScaleMv: 580, voltage: '1.2V', description: 'Termistor NTC de temperatura' },
+          { pinNumber: 16, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 17, netName: 'VBAT_SENSE', diodeScaleMv: 460, voltage: '4.2V', description: 'Monitoramento bateria' },
+          { pinNumber: 18, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 19, netName: 'VREG_L18_SUB', diodeScaleMv: 530, voltage: '1.8V', description: 'Alimentação lógica subplaca' },
+          { pinNumber: 20, netName: 'VIB_MOTOR_P', diodeScaleMv: 500, voltage: '3.3V', description: 'Vibracall +' },
+          { pinNumber: 21, netName: 'VIB_MOTOR_N', diodeScaleMv: 500, voltage: '0V', description: 'Vibracall -' },
+          { pinNumber: 22, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 23, netName: 'ANT_SW_RF', diodeScaleMv: 720, voltage: '0V', description: 'Linha RF Antena' },
+          { pinNumber: 24, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 25, netName: 'JACK_DET_L', diodeScaleMv: 650, voltage: '1.8V', description: 'Fone de ouvido' },
+          { pinNumber: 26, netName: 'JACK_DET_R', diodeScaleMv: 650, voltage: '1.8V', description: 'Fone de ouvido' },
+          { pinNumber: 27, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 28, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Pino reforçado VBUS' },
+          { pinNumber: 29, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra' },
+          { pinNumber: 30, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Carcaça' },
+        ]);
+        break;
+
+      default:
+        // Galaxy A15 / Linha A Samsung
+        setTotalPins(34);
+        setConnectorRef('FPC_SUB_A15');
+        setPinsList([
+          { pinNumber: 1, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Entrada USB 5V VBUS Alimentação' },
+          { pinNumber: 2, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Entrada USB 5V VBUS Alimentação' },
+          { pinNumber: 3, netName: 'USB_CC1', diodeScaleMv: 580, voltage: '1.8V', description: 'Linha de detecção cabo Type-C CC1' },
+          { pinNumber: 4, netName: 'USB_CC2', diodeScaleMv: 580, voltage: '1.8V', description: 'Linha de detecção cabo Type-C CC2' },
+          { pinNumber: 5, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 6, netName: 'USB_DP', diodeScaleMv: 650, voltage: '3.3V', description: 'Dados USB D+ (Positivo)' },
+          { pinNumber: 7, netName: 'USB_DM', diodeScaleMv: 650, voltage: '3.3V', description: 'Dados USB D- (Negativo)' },
+          { pinNumber: 8, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 9, netName: 'MIC_MAIN_POS', diodeScaleMv: 610, voltage: '1.8V', description: 'Microfone principal de chamada Mic+' },
+          { pinNumber: 10, netName: 'MIC_BIAS_2V', diodeScaleMv: 590, voltage: '2.0V', description: 'Alimentação Bias do microfone' },
+          { pinNumber: 11, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 12, netName: 'SPK_OUT_P', diodeScaleMv: 490, voltage: '4.2V', description: 'Campainha / Viva-voz Speaker+' },
+          { pinNumber: 13, netName: 'SPK_OUT_N', diodeScaleMv: 490, voltage: '4.2V', description: 'Campainha / Viva-voz Speaker-' },
+          { pinNumber: 14, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 15, netName: 'TH_SUB_DET', diodeScaleMv: 590, voltage: '1.2V', description: 'Sensor térmico Termistor Subplaca' },
+          { pinNumber: 16, netName: 'ANT_RX_DET', diodeScaleMv: 720, voltage: '0V', description: 'Linha coaxial RF Antena' },
+          { pinNumber: 17, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 18, netName: 'VBAT_SENSE', diodeScaleMv: 460, voltage: '4.2V', description: 'Monitoramento da bateria' },
+          { pinNumber: 19, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 20, netName: 'OVP_OUT_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Saída do CI OVP para a placa principal' },
+          { pinNumber: 21, netName: 'OVP_OUT_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Saída do CI OVP para a placa principal' },
+          { pinNumber: 22, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 23, netName: 'EAR_JACK_L', diodeScaleMv: 640, voltage: '1.8V', description: 'Canal esquerdo fone de ouvido' },
+          { pinNumber: 24, netName: 'EAR_JACK_R', diodeScaleMv: 640, voltage: '1.8V', description: 'Canal direito fone de ouvido' },
+          { pinNumber: 25, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 26, netName: 'MOTOR_VIB_P', diodeScaleMv: 510, voltage: '3.3V', description: 'Motor Vibracall+' },
+          { pinNumber: 27, netName: 'MOTOR_VIB_N', diodeScaleMv: 510, voltage: '0V', description: 'Motor Vibracall-' },
+          { pinNumber: 28, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 29, netName: 'ID_BOARD_SUB', diodeScaleMv: 680, voltage: '1.8V', description: 'Detecção de versão da subplaca' },
+          { pinNumber: 30, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Terra / Massa comum (GND)' },
+          { pinNumber: 31, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Pino reforçado VBUS Carga rápida' },
+          { pinNumber: 32, netName: 'VBUS_5V', diodeScaleMv: 520, voltage: '5.0V', description: 'Pino reforçado VBUS Carga rápida' },
+          { pinNumber: 33, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Carcaça / Terra blindado' },
+          { pinNumber: 34, netName: 'GND', diodeScaleMv: 0, voltage: '0V', description: 'Carcaça / Terra blindado' },
+        ]);
+        break;
+    }
   };
 
   // Gerar e Inserir Marcadores na Placa
@@ -193,17 +360,25 @@ export const FpcPinoutGeneratorModal: React.FC<FpcPinoutGeneratorModalProps> = (
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Botão de Preset Samsung Galaxy A15 */}
-            <button
-              onClick={applyA15Preset}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-extrabold text-xs shadow-lg flex items-center gap-1.5 transition"
-              title="Carregar 34 pinos já nomeados com valores da subplaca do Galaxy A15"
-            >
-              <Smartphone className="w-3.5 h-3.5 text-amber-300" />
-              <span>Preset Galaxy A15 (Subplaca)</span>
-            </button>
+            {/* Seletor de Presets Universais */}
+            <div className="flex items-center gap-1.5 bg-slate-950 border border-purple-500/40 px-2 py-1 rounded-xl shadow-inner">
+              <Smartphone className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+              <span className="text-[11px] font-bold text-slate-300 shrink-0">Modelos Prontos:</span>
+              <select
+                onChange={(e) => applyPreset(e.target.value as any)}
+                defaultValue="a15"
+                className="bg-slate-900 text-purple-300 font-bold text-xs rounded-lg px-2 py-1 border border-slate-700 focus:outline-none focus:border-purple-500 cursor-pointer"
+              >
+                <option value="a15">Samsung Galaxy A15 Subplaca (34 Pinos)</option>
+                <option value="battery">Bateria Universal 6 Pinos (VBAT / ID / NTC)</option>
+                <option value="typec">Conector USB Type-C 24 Pinos Completo</option>
+                <option value="display">Tela Display OLED + Touch (40 Pinos)</option>
+                <option value="iphone">Apple iPhone Dock / Lightning (28 Pinos)</option>
+                <option value="motog">Motorola Moto G Subplaca (30 Pinos)</option>
+              </select>
+            </div>
 
-            <button onClick={onClose} className="p-1 rounded-xl text-slate-400 hover:text-white bg-slate-800">
+            <button onClick={onClose} className="p-1.5 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition">
               <X className="w-4 h-4" />
             </button>
           </div>
